@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}AI Crowd Detection - Temple Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="bi bi-camera"></i> AI Crowd Detection</h4>
+            </div>
+            <div class="card-body">
+                <form id="detectForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Upload Image/Video</label>
+                        <input type="file" class="form-control" name="file" accept="image/*,video/*" required>
+                        <small class="text-muted">Supported formats: JPG, PNG, MP4, AVI</small>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-warning btn-lg">
+                            <i class="bi bi-play-circle"></i> Detect Crowd
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="results" class="mt-4" style="display: none;">
+                    <div class="alert alert-info">
+                        <h5>Detection Results:</h5>
+                        <p><strong>People Count:</strong> <span id="count"></span></p>
+                        <p><strong>Crowd Status:</strong> <span id="status" class="badge"></span></p>
+                    </div>
+                </div>
+                
+                <div id="loading" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-2">Analyzing crowd density...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6>Latest Detection Results</h6>
+            </div>
+            <div class="card-body text-center">
+                <h4 id="latestStatus">Loading...</h4>
+                <p id="latestCount" class="text-muted"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('detectForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const loading = document.getElementById('loading');
+    const results = document.getElementById('results');
+    
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    
+    fetch('/detect-crowd', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        loading.style.display = 'none';
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        
+        document.getElementById('count').textContent = data.count;
+        document.getElementById('status').textContent = data.status;
+        document.getElementById('status').className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+        
+        results.style.display = 'block';
+        loadLatestStatus();
+    })
+    .catch(error => {
+        loading.style.display = 'none';
+        alert('Error: ' + error.message);
+    });
+});
+
+function loadLatestStatus() {
+    fetch('/crowd-status')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('latestStatus').textContent = `Current: ${data.status}`;
+            document.getElementById('latestCount').textContent = `People detected: ${data.count}`;
+        });
+}
+
+loadLatestStatus();
+setInterval(loadLatestStatus, 10000);
+</script>
+{% endblock %}

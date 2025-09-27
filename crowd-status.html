@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Crowd Status - Temple Pilgrimage</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="pilgrim-dashboard.html">🕉️ Temple Pilgrimage</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="pilgrim-dashboard.html">Dashboard</a>
+                <a class="nav-link" href="pilgrim-login.html">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white text-center">
+                        <h4><i class="bi bi-people"></i> Live Crowd Status</h4>
+                        <small>Updated every 5 minutes</small>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="mb-4">
+                            <div class="display-4 mb-3" id="crowdIcon">🟢</div>
+                            <h2 class="text-success" id="crowdStatus">Current Status: Medium</h2>
+                            <p class="text-muted" id="crowdDescription">Perfect time to visit! Minimal waiting time expected.</p>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6>Entry Gate</h6>
+                                        <span class="badge bg-success">Low</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6>Main Temple</h6>
+                                        <span class="badge bg-warning">Medium</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6>Prasadam Counter</h6>
+                                        <span class="badge bg-success">Low</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-clock"></i> 
+                            <strong>Best visiting times:</strong> 6:00-8:00 AM and 7:00-8:00 PM
+                        </div>
+
+                        <button class="btn btn-primary me-2" onclick="refreshStatus()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Status
+                        </button>
+                        <a href="slot-booking.html" class="btn btn-success">
+                            <i class="bi bi-calendar-plus"></i> Book Slot
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6>Crowd Levels Guide</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 text-center">
+                                <span class="badge bg-success fs-6 mb-2">🟢 Low</span>
+                                <p class="small">0-30% capacity<br>No waiting time</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <span class="badge bg-warning fs-6 mb-2">🟡 Medium</span>
+                                <p class="small">30-70% capacity<br>5-15 min wait</p>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <span class="badge bg-danger fs-6 mb-2">🔴 High</span>
+                                <p class="small">70-100% capacity<br>15+ min wait</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="shared-data.js"></script>
+    <script>
+        const statuses = [
+            { level: 'Low', color: 'success', icon: '🟢', desc: 'Perfect time to visit! Minimal waiting time expected.' },
+            { level: 'Medium', color: 'warning', icon: '🟡', desc: 'Moderate crowd. Some waiting time expected.' },
+            { level: 'High', color: 'danger', icon: '🔴', desc: 'Heavy crowd. Consider visiting later or book a slot.' }
+        ];
+
+        function refreshStatus() {
+            const crowdLevel = localStorage.getItem('crowdStatus') || 'Low';
+            const status = statuses.find(s => s.level === crowdLevel) || statuses[0];
+            
+            document.getElementById('crowdIcon').textContent = status.icon;
+            document.getElementById('crowdStatus').textContent = `Current Status: ${status.level}`;
+            document.getElementById('crowdStatus').className = `text-${status.color}`;
+            document.getElementById('crowdDescription').textContent = status.desc;
+            
+            if (event && event.target) {
+                const btn = event.target;
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refreshing...';
+                btn.disabled = true;
+                
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh Status';
+                    btn.disabled = false;
+                }, 1000);
+            }
+        }
+
+        // Auto refresh every 5 seconds
+        setInterval(refreshStatus, 5000);
+        
+        // Check for admin alerts
+        function checkAlerts() {
+            const alert = JSON.parse(localStorage.getItem('adminAlert') || 'null');
+            if (alert && Date.now() - alert.timestamp < 30000) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning alert-dismissible fade show position-fixed';
+                alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
+                alertDiv.innerHTML = `
+                    <strong>Admin Alert:</strong> ${alert.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                localStorage.removeItem('adminAlert');
+            }
+        }
+        
+        // Check for alerts every 2 seconds
+        setInterval(checkAlerts, 2000);
+        
+        // Load initial status
+        document.addEventListener('DOMContentLoaded', refreshStatus);
+    </script>
+</body>
+</html>

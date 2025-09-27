@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilgrim Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="#">🕉️ Temple Pilgrimage</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="pilgrim-login.html">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calendar-check fs-1 text-primary"></i>
+                        <h6 class="mt-2">Book Slot</h6>
+                        <a href="slot-booking.html" class="btn btn-primary btn-sm">Book Now</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people fs-1 text-info"></i>
+                        <h6 class="mt-2">Crowd Status</h6>
+                        <a href="crowd-status.html" class="btn btn-info btn-sm">View Status</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-geo-alt fs-1 text-success"></i>
+                        <h6 class="mt-2">Temple Map</h6>
+                        <a href="temple-map.html" class="btn btn-success btn-sm">View Map</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-list-ul fs-1 text-warning"></i>
+                        <h6 class="mt-2">My Bookings</h6>
+                        <button class="btn btn-warning btn-sm" onclick="showBookings()">View</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Welcome to Temple Pilgrimage</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Plan your visit to the temple with our crowd management system. Book your slot in advance and check real-time crowd status.</p>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Temple timings: 6:00 AM - 8:00 PM
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6>Quick Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <span>Current Crowd:</span>
+                            <span class="badge bg-success" id="dashboardCrowd">Medium</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="shared-data.js"></script>
+    <script>
+        function showBookings() {
+            const bookings = JSON.parse(localStorage.getItem('templeBookings') || '[]');
+            if (bookings.length === 0) {
+                alert('No bookings found.');
+                return;
+            }
+            
+            const bookingList = bookings.map(b => `• ${b.date} ${b.timeSlot} - ${b.persons} persons (${b.status})`).join('\n');
+            alert('Your bookings:\n' + bookingList);
+        }
+        
+        // Update crowd status display
+        function updateCrowdDisplay() {
+            const crowdLevel = localStorage.getItem('crowdStatus') || 'Low';
+            const crowdBadge = document.getElementById('dashboardCrowd');
+            if (crowdBadge) {
+                crowdBadge.textContent = crowdLevel;
+                crowdBadge.className = `badge bg-${crowdLevel === 'Low' ? 'success' : crowdLevel === 'Medium' ? 'warning' : 'danger'}`;
+            }
+        }
+        
+        // Check for admin alerts
+        function checkAlerts() {
+            const alert = JSON.parse(localStorage.getItem('adminAlert') || 'null');
+            if (alert && Date.now() - alert.timestamp < 30000) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning alert-dismissible fade show position-fixed';
+                alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
+                alertDiv.innerHTML = `
+                    <strong>Admin Alert:</strong> ${alert.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                localStorage.removeItem('adminAlert');
+            }
+        }
+        
+        // Auto-update every 5 seconds
+        setInterval(() => {
+            updateCrowdDisplay();
+            checkAlerts();
+        }, 5000);
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', updateCrowdDisplay);
+    </script>
+</body>
+</html>

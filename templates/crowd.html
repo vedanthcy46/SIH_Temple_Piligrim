@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Live Crowd Status - Temple Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white text-center">
+                <h4><i class="bi bi-people"></i> Live Crowd Status</h4>
+                <small>Real-time updates via AI detection</small>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-4">
+                    <div class="display-4 mb-3" id="crowdIcon">🟡</div>
+                    <h2 class="text-warning" id="crowdStatus">Current Status: Medium</h2>
+                    <p class="text-muted" id="crowdDescription">Moderate crowd. Some waiting time expected.</p>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Entry Gate</h6>
+                                <span class="badge bg-success">Low</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Main Temple</h6>
+                                <span class="badge bg-warning">Medium</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Prasadam Counter</h6>
+                                <span class="badge bg-success">Low</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Real-time updates:</strong> Status automatically updates when admin changes crowd level
+                </div>
+
+                <a href="{{ url_for('book') }}" class="btn btn-success">
+                    <i class="bi bi-calendar-plus"></i> Book Slot
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initial crowd status load
+fetch('/crowd-status')
+    .then(response => response.json())
+    .then(data => {
+        updateCrowdDisplay(data.status, data.count);
+    });
+
+function updateCrowdDisplay(status, count) {
+    const icons = { 'Low': '🟢', 'Medium': '🟡', 'High': '🔴' };
+    const colors = { 'Low': 'success', 'Medium': 'warning', 'High': 'danger' };
+    const descriptions = {
+        'Low': 'Perfect time to visit! Minimal waiting time expected.',
+        'Medium': 'Moderate crowd. Some waiting time expected.',
+        'High': 'Heavy crowd. Consider visiting later or book a slot.'
+    };
+    
+    document.getElementById('crowdIcon').textContent = icons[status];
+    document.getElementById('crowdStatus').textContent = `Current Status: ${status}`;
+    document.getElementById('crowdStatus').className = `text-${colors[status]}`;
+    document.getElementById('crowdDescription').textContent = descriptions[status];
+}
+</script>
+{% endblock %}

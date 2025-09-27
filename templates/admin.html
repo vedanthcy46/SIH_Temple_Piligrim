@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Temple Management{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-people fs-1"></i>
+                <h4>{{ bookings|length }}</h4>
+                <p class="mb-0">Total Bookings</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-calendar-check fs-1"></i>
+                <h4>{{ bookings|selectattr('date', 'equalto', today)|list|length }}</h4>
+                <p class="mb-0">Today's Bookings</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>Crowd Management</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex gap-2 mb-3">
+                    <a href="{{ url_for('detect_crowd_route') }}" class="btn btn-warning flex-fill">
+                        <i class="bi bi-camera"></i> AI Detection
+                    </a>
+                    <form method="POST" action="{{ url_for('update_crowd') }}" class="d-flex gap-2 flex-fill">
+                        <select class="form-select" name="status" required>
+                            <option value="Low" {% if crowd_status == 'Low' %}selected{% endif %}>Low</option>
+                            <option value="Medium" {% if crowd_status == 'Medium' %}selected{% endif %}>Medium</option>
+                            <option value="High" {% if crowd_status == 'High' %}selected{% endif %}>High</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary">Manual Update</button>
+                    </form>
+                </div>
+                <div class="text-center">
+                    <h5 id="currentStatus" class="badge bg-{{ 'success' if crowd_status == 'Low' else 'warning' if crowd_status == 'Medium' else 'danger' }}">{{ crowd_status }}</h5>
+                    <p id="currentCount" class="text-muted small">People detected: {{ crowd_count or 0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-dark text-white">
+        <h4><i class="bi bi-table"></i> All Bookings</h4>
+    </div>
+    <div class="card-body">
+        {% if bookings %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Date</th>
+                        <th>Time Slot</th>
+                        <th>Persons</th>
+                        <th>Booked On</th>
+                    </tr>
+                </thead>
+                <tbody id="bookingsTable">
+                    {% for booking in bookings %}
+                    <tr>
+                        <td>{{ booking.id }}</td>
+                        <td>{{ booking.user.name }}</td>
+                        <td>{{ booking.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ booking.time_slot }}</td>
+                        <td>{{ booking.persons }}</td>
+                        <td>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="bi bi-inbox fs-1 text-muted"></i>
+            <p class="text-muted mt-2">No bookings found</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshCrowdData() {
+    fetch('/crowd-status')
+        .then(response => response.json())
+        .then(data => {
+            const statusElement = document.getElementById('currentStatus');
+            const countElement = document.getElementById('currentCount');
+            
+            statusElement.textContent = data.status;
+            statusElement.className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+            countElement.textContent = `People detected: ${data.count}`;
+        });
+}
+
+setInterval(refreshCrowdData, 10000);
+</script>
+{% endblock %}

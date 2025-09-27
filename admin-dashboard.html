@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Temple Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #1a1a1a; }
+        .heatmap-cell { width: 40px; height: 40px; margin: 2px; border-radius: 4px; }
+        .heat-low { background-color: #28a745; }
+        .heat-medium { background-color: #ffc107; }
+        .heat-high { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="bi bi-shield-check"></i> Temple Admin Portal
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">Welcome, Admin</span>
+                <a class="nav-link" href="admin-login.html">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people fs-1"></i>
+                        <h4>1,247</h4>
+                        <p class="mb-0">Today's Visitors</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calendar-check fs-1"></i>
+                        <h4>89</h4>
+                        <p class="mb-0">Active Bookings</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning">
+                    <div class="card-body text-center text-dark">
+                        <i class="bi bi-exclamation-triangle fs-1"></i>
+                        <h4 id="currentCrowd">Medium</h4>
+                        <p class="mb-0">Current Crowd</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info">
+                    <div class="card-body text-center">
+                        <i class="bi bi-clock fs-1"></i>
+                        <h4>6:00 AM</h4>
+                        <p class="mb-0">Temple Opens</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Bookings Table -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-table"></i> Recent Bookings</h5>
+                        <button class="btn btn-primary btn-sm" onclick="refreshBookings()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Booking ID</th>
+                                        <th>Name</th>
+                                        <th>Date</th>
+                                        <th>Time Slot</th>
+                                        <th>Persons</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bookingsTable">
+                                    <tr>
+                                        <td>TPL1001</td>
+                                        <td>Rajesh Kumar</td>
+                                        <td>2024-01-15</td>
+                                        <td>10:00-12:00</td>
+                                        <td>4</td>
+                                        <td><span class="badge bg-success">Confirmed</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>TPL1002</td>
+                                        <td>Priya Sharma</td>
+                                        <td>2024-01-15</td>
+                                        <td>14:00-16:00</td>
+                                        <td>2</td>
+                                        <td><span class="badge bg-warning">Pending</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>TPL1003</td>
+                                        <td>Amit Patel</td>
+                                        <td>2024-01-16</td>
+                                        <td>6:00-8:00</td>
+                                        <td>6</td>
+                                        <td><span class="badge bg-success">Confirmed</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>TPL1004</td>
+                                        <td>Sunita Devi</td>
+                                        <td>2024-01-16</td>
+                                        <td>18:00-20:00</td>
+                                        <td>3</td>
+                                        <td><span class="badge bg-success">Confirmed</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>TPL1005</td>
+                                        <td>Vikram Singh</td>
+                                        <td>2024-01-17</td>
+                                        <td>12:00-14:00</td>
+                                        <td>5</td>
+                                        <td><span class="badge bg-info">Checked-in</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="col-md-4">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6><i class="bi bi-gear"></i> Quick Controls</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-warning" onclick="sendAlert()">
+                                <i class="bi bi-megaphone"></i> Send Alert to Pilgrims
+                            </button>
+                            <button class="btn btn-info" onclick="updateCrowd()">
+                                <i class="bi bi-arrow-clockwise"></i> Update Crowd Status
+                            </button>
+                            <button class="btn btn-success" onclick="exportData()">
+                                <i class="bi bi-download"></i> Export Bookings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crowd Heatmap -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="bi bi-thermometer-half"></i> Temple Area Heatmap</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <small class="text-muted">Entry Gate</small>
+                            <div class="d-flex">
+                                <div class="heatmap-cell heat-low"></div>
+                                <div class="heatmap-cell heat-low"></div>
+                                <div class="heatmap-cell heat-medium"></div>
+                                <div class="heatmap-cell heat-low"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted">Main Temple</small>
+                            <div class="d-flex">
+                                <div class="heatmap-cell heat-medium"></div>
+                                <div class="heatmap-cell heat-high"></div>
+                                <div class="heatmap-cell heat-high"></div>
+                                <div class="heatmap-cell heat-medium"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted">Prasadam Counter</small>
+                            <div class="d-flex">
+                                <div class="heatmap-cell heat-low"></div>
+                                <div class="heatmap-cell heat-medium"></div>
+                                <div class="heatmap-cell heat-low"></div>
+                                <div class="heatmap-cell heat-low"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted">Parking</small>
+                            <div class="d-flex">
+                                <div class="heatmap-cell heat-medium"></div>
+                                <div class="heatmap-cell heat-medium"></div>
+                                <div class="heatmap-cell heat-low"></div>
+                                <div class="heatmap-cell heat-low"></div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small>
+                                <span class="badge bg-success">Low</span>
+                                <span class="badge bg-warning">Medium</span>
+                                <span class="badge bg-danger">High</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="shared-data.js"></script>
+    <script>
+        function sendAlert() {
+            const message = prompt("Enter alert message for pilgrims:");
+            if (message) {
+                alert(`Alert sent to all registered pilgrims: "${message}"`);
+            }
+        }
+
+        function updateCrowd() {
+            const levels = ['Low', 'Medium', 'High'];
+            const colors = ['success', 'warning', 'danger'];
+            const randomIndex = Math.floor(Math.random() * levels.length);
+            
+            const crowdElement = document.getElementById('currentCrowd');
+            crowdElement.textContent = levels[randomIndex];
+            
+            // Update card color
+            const card = crowdElement.closest('.card');
+            card.className = `card bg-${colors[randomIndex]}`;
+            
+            alert(`Crowd status updated to: ${levels[randomIndex]}`);
+        }
+
+        function exportData() {
+            alert('Booking data exported to CSV file successfully!');
+        }
+
+        function refreshBookings() {
+            const btn = event.target;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refreshing...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+                btn.disabled = false;
+                alert('Bookings data refreshed!');
+            }, 1000);
+        }
+
+        // Auto-refresh heatmap every 10 seconds
+        setInterval(() => {
+            const cells = document.querySelectorAll('.heatmap-cell');
+            const heatLevels = ['heat-low', 'heat-medium', 'heat-high'];
+            
+            cells.forEach(cell => {
+                const randomHeat = heatLevels[Math.floor(Math.random() * heatLevels.length)];
+                cell.className = `heatmap-cell ${randomHeat}`;
+            });
+        }, 10000);
+    </script>
+</body>
+</html>

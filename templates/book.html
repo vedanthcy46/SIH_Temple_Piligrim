@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Book Slot - Temple Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="bi bi-calendar-check"></i> Book Your Slot</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Time Slot</label>
+                            <select class="form-select" name="time_slot" required>
+                                <option value="">Select time slot</option>
+                                <option value="6:00-8:00">6:00 AM - 8:00 AM</option>
+                                <option value="8:00-10:00">8:00 AM - 10:00 AM</option>
+                                <option value="10:00-12:00">10:00 AM - 12:00 PM</option>
+                                <option value="12:00-14:00">12:00 PM - 2:00 PM</option>
+                                <option value="14:00-16:00">2:00 PM - 4:00 PM</option>
+                                <option value="16:00-18:00">4:00 PM - 6:00 PM</option>
+                                <option value="18:00-20:00">6:00 PM - 8:00 PM</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Number of Persons</label>
+                        <select class="form-select" name="persons" required>
+                            <option value="">Select number</option>
+                            <option value="1">1 Person</option>
+                            <option value="2">2 Persons</option>
+                            <option value="3">3 Persons</option>
+                            <option value="4">4 Persons</option>
+                            <option value="5">5 Persons</option>
+                            <option value="6">6+ Persons</option>
+                        </select>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">Confirm Booking</button>
+                        <a href="{{ url_for('my_bookings') }}" class="btn btn-outline-secondary">View My Bookings</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6>Current Crowd Status</h6>
+            </div>
+            <div class="card-body text-center">
+                <h4 id="crowdStatus">Loading...</h4>
+                <button class="btn btn-info btn-sm" onclick="refreshCrowd()">Refresh</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelector('input[name="date"]').min = new Date().toISOString().split('T')[0];
+
+function refreshCrowd() {
+    fetch('/crowd-status')
+        .then(response => response.json())
+        .then(data => {
+            const status = data.status;
+            const count = data.count || 0;
+            document.getElementById('crowdStatus').innerHTML = `Current Status: ${status}<br><small>People detected: ${count}</small>`;
+        });
+}
+
+setInterval(refreshCrowd, 5000);
+refreshCrowd();
+</script>
+{% endblock %}

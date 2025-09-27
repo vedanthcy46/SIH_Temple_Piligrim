@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}My Bookings - Temple Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white d-flex justify-content-between">
+                <h4><i class="bi bi-list-ul"></i> My Bookings</h4>
+                <a href="{{ url_for('book') }}" class="btn btn-light btn-sm">New Booking</a>
+            </div>
+            <div class="card-body">
+                {% if bookings %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time Slot</th>
+                                <th>Persons</th>
+                                <th>Booked On</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for booking in bookings %}
+                            <tr>
+                                <td>{{ booking.date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ booking.time_slot }}</td>
+                                <td>{{ booking.persons }}</td>
+                                <td>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-calendar-x fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No bookings found</p>
+                    <a href="{{ url_for('book') }}" class="btn btn-primary">Book Now</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6>Live Crowd Status</h6>
+            </div>
+            <div class="card-body text-center">
+                <h4 id="crowdStatus">Loading...</h4>
+                <small class="text-muted">Updates every 5 seconds</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshCrowd() {
+    fetch('/crowd-status')
+        .then(response => response.json())
+        .then(data => {
+            const status = data.status;
+            const count = data.count || 0;
+            const element = document.getElementById('crowdStatus');
+            element.innerHTML = `Current: ${status}<br><small>People: ${count}</small>`;
+            element.className = `text-${status === 'Low' ? 'success' : status === 'Medium' ? 'warning' : 'danger'}`;
+        });
+}
+
+setInterval(refreshCrowd, 5000);
+refreshCrowd();
+</script>
+{% endblock %}
