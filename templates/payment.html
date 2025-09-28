@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="bi bi-credit-card"></i> Payment Gateway</h4>
+            </div>
+            <div class="card-body">
+                <!-- Booking Summary -->
+                <div class="alert alert-info">
+                    <h6>Booking Summary</h6>
+                    <p><strong>Temple:</strong> {{ booking.temple.name }}</p>
+                    <p><strong>Date:</strong> {{ booking.date.strftime('%d %B %Y') }}</p>
+                    <p><strong>Time:</strong> {{ booking.time_slot }}</p>
+                    <p><strong>Persons:</strong> {{ booking.persons }}</p>
+                    <p><strong>Confirmation ID:</strong> {{ booking.confirmation_id }}</p>
+                    <hr>
+                    <h5><strong>Total Amount: ₹{{ booking.total_amount }}</strong></h5>
+                </div>
+
+                <!-- Payment Method Selection -->
+                <div class="mb-4">
+                    <label class="form-label">Select Payment Method</label>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card payment-method" data-method="card">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-credit-card fs-2 text-primary"></i>
+                                    <p class="mt-2 mb-0">Credit/Debit Card</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card payment-method" data-method="upi">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-phone fs-2 text-success"></i>
+                                    <p class="mt-2 mb-0">UPI Payment</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card payment-method" data-method="netbanking">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-bank fs-2 text-info"></i>
+                                    <p class="mt-2 mb-0">Net Banking</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Payment Form -->
+                <form id="cardForm" class="payment-form" style="display: none;">
+                    <h6>Card Details</h6>
+                    <div class="mb-3">
+                        <label class="form-label">Card Number</label>
+                        <input type="text" class="form-control" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Expiry Date</label>
+                                <input type="text" class="form-control" id="expiryDate" placeholder="MM/YY" maxlength="5">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">CVV</label>
+                                <input type="text" class="form-control" id="cvv" placeholder="123" maxlength="3">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cardholder Name</label>
+                        <input type="text" class="form-control" id="cardholderName" placeholder="John Doe">
+                    </div>
+                </form>
+
+                <!-- UPI Payment Form -->
+                <form id="upiForm" class="payment-form" style="display: none;">
+                    <h6>UPI Payment</h6>
+                    <div class="mb-3">
+                        <label class="form-label">UPI ID</label>
+                        <input type="text" class="form-control" id="upiId" placeholder="yourname@paytm">
+                    </div>
+                    <div class="text-center mb-3">
+                        <p class="text-muted">Or scan QR code with any UPI app</p>
+                        <div class="border p-3 d-inline-block">
+                            <i class="bi bi-qr-code" style="font-size: 4rem;"></i>
+                            <p class="small mt-2">UPI QR Code</p>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Net Banking Form -->
+                <form id="netbankingForm" class="payment-form" style="display: none;">
+                    <h6>Net Banking</h6>
+                    <div class="mb-3">
+                        <label class="form-label">Select Your Bank</label>
+                        <select class="form-select" id="bankSelect">
+                            <option value="">Choose your bank</option>
+                            <option value="sbi">State Bank of India</option>
+                            <option value="hdfc">HDFC Bank</option>
+                            <option value="icici">ICICI Bank</option>
+                            <option value="axis">Axis Bank</option>
+                            <option value="pnb">Punjab National Bank</option>
+                            <option value="bob">Bank of Baroda</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>You will be redirected to your bank's secure login page</small>
+                    </div>
+                </form>
+
+                <!-- Pay Button -->
+                <div class="d-grid mt-4">
+                    <button type="button" id="payButton" class="btn btn-success btn-lg" disabled>
+                        <i class="bi bi-lock"></i> Pay ₹{{ booking.total_amount }}
+                    </button>
+                </div>
+
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-shield-check"></i> Secure payment powered by Temple Gateway
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.payment-method {
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+}
+.payment-method:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+}
+.payment-method.selected {
+    border-color: #28a745;
+    background-color: #f8fff9;
+}
+</style>
+
+<script>
+let selectedMethod = null;
+
+// Payment method selection
+document.querySelectorAll('.payment-method').forEach(method => {
+    method.addEventListener('click', function() {
+        // Remove previous selection
+        document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+        document.querySelectorAll('.payment-form').forEach(f => f.style.display = 'none');
+        
+        // Select current method
+        this.classList.add('selected');
+        selectedMethod = this.dataset.method;
+        
+        // Show corresponding form
+        document.getElementById(selectedMethod + 'Form').style.display = 'block';
+        document.getElementById('payButton').disabled = false;
+    });
+});
+
+// Pay button click
+document.getElementById('payButton').addEventListener('click', function() {
+    if (!selectedMethod) {
+        alert('Please select a payment method');
+        return;
+    }
+    
+    // Validate based on selected method
+    if (selectedMethod === 'card') {
+        if (!document.getElementById('cardNumber').value || 
+            !document.getElementById('expiryDate').value || 
+            !document.getElementById('cvv').value || 
+            !document.getElementById('cardholderName').value) {
+            alert('Please fill all card details');
+            return;
+        }
+    } else if (selectedMethod === 'upi') {
+        if (!document.getElementById('upiId').value) {
+            alert('Please enter UPI ID');
+            return;
+        }
+    } else if (selectedMethod === 'netbanking') {
+        if (!document.getElementById('bankSelect').value) {
+            alert('Please select your bank');
+            return;
+        }
+    }
+    
+    // Show loading
+    const originalText = this.innerHTML;
+    this.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+    this.disabled = true;
+    
+    // Process payment
+    fetch('/api/process-payment', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            booking_id: {{ booking.id }},
+            payment_method: selectedMethod
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Payment Successful!\nTransaction ID: ' + data.transaction_id + '\n\nConfirmation email sent!');
+            window.location.href = '/payment-receipt/{{ booking.id }}';
+        } else {
+            alert('❌ Payment Failed: ' + data.message);
+            this.innerHTML = originalText;
+            this.disabled = false;
+        }
+    })
+    .catch(error => {
+        alert('❌ Payment Error: ' + error.message);
+        this.innerHTML = originalText;
+        this.disabled = false;
+    });
+});
+
+// Format card number input
+document.getElementById('cardNumber')?.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+    let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+    e.target.value = formattedValue;
+});
+
+// Format expiry date
+document.getElementById('expiryDate')?.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+        value = value.substring(0,2) + '/' + value.substring(2,4);
+    }
+    e.target.value = value;
+});
+</script>
+{% endblock %}

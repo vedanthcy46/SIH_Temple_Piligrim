@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white text-center">
+                <h4><i class="bi bi-check-circle"></i> Payment Successful</h4>
+            </div>
+            <div class="card-body">
+                <!-- Receipt Header -->
+                <div class="text-center mb-4">
+                    <h2>🕉️ Divine Darshan</h2>
+                    <p class="text-muted">Temple Booking Receipt</p>
+                </div>
+
+                <!-- Receipt Details -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Booking Details</h6>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Temple:</strong></td>
+                                <td>{{ booking.temple.name }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date:</strong></td>
+                                <td>{{ booking.date.strftime('%d %B %Y') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Time:</strong></td>
+                                <td>{{ booking.time_slot }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Persons:</strong></td>
+                                <td>{{ booking.persons }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Location:</strong></td>
+                                <td>{{ booking.temple.location }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Payment Details</h6>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Transaction ID:</strong></td>
+                                <td><code>{{ booking.transaction_id }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Confirmation ID:</strong></td>
+                                <td><code>{{ booking.confirmation_id }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Payment Status:</strong></td>
+                                <td><span class="badge bg-success">{{ booking.payment_status.title() }}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Booking Status:</strong></td>
+                                <td><span class="badge bg-success">{{ booking.status.title() }}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Payment Date:</strong></td>
+                                <td>{{ booking.created_at.strftime('%d %B %Y, %I:%M %p') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Amount Breakdown -->
+                <div class="alert alert-light border">
+                    <h6>Amount Breakdown</h6>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p>Darshan Fee ({{ booking.persons }} person{{ 's' if booking.persons > 1 else '' }})</p>
+                            {% for order in booking.orders %}
+                                {% if order.total_amount > 0 %}
+                                <p>Pre-booked Services</p>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <p>₹{{ booking.persons * 50 }}</p>
+                            {% for order in booking.orders %}
+                                {% if order.total_amount > 0 %}
+                                <p>₹{{ order.total_amount }}</p>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5><strong>Total Amount Paid</strong></h5>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <h5><strong>₹{{ booking.total_amount }}</strong></h5>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code Section -->
+                {% for order in booking.orders %}
+                    {% if order.qr_code %}
+                    <div class="alert alert-info text-center">
+                        <h6><i class="bi bi-qr-code"></i> Your QR Code</h6>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ order.qr_code }}" alt="QR Code" class="img-fluid mb-2">
+                        <p><code>{{ order.qr_code }}</code></p>
+                        <small>Show this QR code at the temple for service collection</small>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- Instructions -->
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-info-circle"></i> Important Instructions</h6>
+                    <ul class="mb-0">
+                        <li>Please arrive at {{ booking.temple.name }} on {{ booking.date.strftime('%d %B %Y') }}</li>
+                        <li>Report to the temple between {{ booking.time_slot }}</li>
+                        <li>Carry this receipt and a valid ID for verification</li>
+                        <li>Temple timings: {{ booking.temple.opening_time or '6:00 AM' }} - {{ booking.temple.closing_time or '8:00 PM' }}</li>
+                        {% for order in booking.orders %}
+                            {% if order.qr_code %}
+                            <li>Show QR code at Pre-booked Collection counter for services</li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="text-center">
+                    <button class="btn btn-primary me-2" onclick="window.print()">
+                        <i class="bi bi-printer"></i> Print Receipt
+                    </button>
+                    <a href="{{ url_for('my_bookings') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-list"></i> My Bookings
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .navbar, .footer { display: none !important; }
+    .card { border: none !important; box-shadow: none !important; }
+}
+</style>
+{% endblock %}

@@ -54,7 +54,10 @@ class Booking(db.Model):
     time_slot = db.Column(db.String(20), nullable=False)
     persons = db.Column(db.Integer, nullable=False)
     confirmation_id = db.Column(db.String(20), unique=True, nullable=False)
-    status = db.Column(db.String(20), default='confirmed')
+    status = db.Column(db.String(20), default='pending')
+    payment_status = db.Column(db.String(20), default='pending')
+    transaction_id = db.Column(db.String(50))
+    total_amount = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     temple = db.relationship('Temple', backref='bookings')
 
@@ -342,7 +345,7 @@ def login():
             if user.role == 'admin':
                 return redirect(url_for('admin'))
             else:
-                return redirect(url_for('book'))
+                return redirect(url_for('temples'))
         else:
             flash('Invalid credentials')
     
@@ -368,46 +371,7 @@ def temple_detail(temple_id):
     today = datetime.now().strftime('%Y-%m-%d')
     return render_template('temple_detail.html', temple=temple, crowd=crowd, prasads=prasads, poojas=poojas, today=today)
 
-@app.route('/book', methods=['GET', 'POST'])
-@login_required
-def book():
-    if current_user.role != 'pilgrim':
-        return redirect(url_for('admin'))
-    
-    temples = Temple.query.filter_by(is_active=True).all()
-    
-    if request.method == 'POST':
-        temple_id = int(request.form['temple_id'])
-        date_str = request.form['date']
-        time_slot = request.form['time_slot']
-        persons = int(request.form['persons'])
-        
-        confirmation_id = generate_confirmation_id()
-        
-        booking = Booking(
-            user_id=current_user.id,
-            temple_id=temple_id,
-            date=datetime.strptime(date_str, '%Y-%m-%d').date(),
-            time_slot=time_slot,
-            persons=persons,
-            confirmation_id=confirmation_id
-        )
-        db.session.add(booking)
-        db.session.commit()
-        
-        socketio.emit('new_booking', {
-            'id': booking.id,
-            'user': current_user.name,
-            'temple': booking.temple.name,
-            'date': date_str,
-            'time_slot': time_slot,
-            'persons': persons,
-            'confirmation_id': confirmation_id
-        })
-        
-        return redirect(url_for('booking_confirmation', booking_id=booking.id))
-    
-    return render_template('book.html', temples=temples)
+
 
 @app.route('/booking-confirmation/<int:booking_id>')
 @login_required
@@ -453,7 +417,7 @@ def admin_dashboard():
     
     temples = Temple.query.all()
     bookings = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
-    total_users = User.query.filter_by(role='pilgrim').count()
+    total_users = User.query.count()
     total_bookings = Booking.query.count()
     
     return render_template('admin_dashboard.html', 
@@ -497,8 +461,9 @@ def update_crowd():
         'accuracy': crowd.accuracy
     })
     
-    if status == 'High':
-        send_crowd_alert(temple_id)
+    # Crowd alert disabled to prevent unwanted emails
+    # if status == 'High':
+    #     send_crowd_alert(temple_id)
     
     if request.is_json:
         return jsonify({'success': True})
@@ -523,13 +488,35 @@ def api_book():
         data = request.json
         confirmation_id = generate_confirmation_id()
         
+        # Calculate total amount
+        darshan_fee = data['persons'] * 50
+        services_amount = 0
+        
+        # Calculate services amount
+        if 'prasads' in data and data['prasads']:
+            for prasad_data in data['prasads']:
+                prasad = Prasad.query.get(prasad_data['id'])
+                if prasad:
+                    services_amount += prasad.price * prasad_data['quantity']
+        
+        if 'poojas' in data and data['poojas']:
+            for pooja_data in data['poojas']:
+                pooja = Pooja.query.get(pooja_data['id'])
+                if pooja:
+                    services_amount += pooja.price
+        
+        total_amount = darshan_fee + services_amount
+        
         booking = Booking(
             user_id=current_user.id,
             temple_id=data.get('temple_id'),
             date=datetime.strptime(data['date'], '%Y-%m-%d').date(),
             time_slot=data['time_slot'],
             persons=data['persons'],
-            confirmation_id=confirmation_id
+            confirmation_id=confirmation_id,
+            total_amount=total_amount,
+            status='pending',
+            payment_status='pending'
         )
         db.session.add(booking)
         db.session.flush()  # Get booking ID
@@ -586,11 +573,7 @@ def api_book():
         
         db.session.commit()
         
-        # Send confirmation email with QR code
-        try:
-            send_booking_confirmation_email(booking, qr_code, total_order_amount)
-        except Exception as e:
-            print(f'Email sending failed: {e}')
+        # Email will be sent after payment completion
         
         # Emit real-time update
         socketio.emit('new_booking', {
@@ -608,6 +591,7 @@ def api_book():
             'success': True,
             'booking_id': booking.id,
             'confirmation_id': confirmation_id,
+            'total_amount': total_amount,
             'qr_code': qr_code,
             'order_amount': total_order_amount if total_order_amount > 0 else 0
         })
@@ -764,8 +748,9 @@ def detect_crowd_route():
                 'accuracy': accuracy
             })
             
-            if status == 'High':
-                send_crowd_alert(temple_id)
+            # Crowd alert disabled to prevent unwanted emails
+            # if status == 'High':
+            #     send_crowd_alert(temple_id)
             
             return jsonify({
                 'count': count,
@@ -839,6 +824,11 @@ def verify_qr():
     
     print(f'QR verification successful for order: {order.id}')  # Debug log
     
+    # Calculate total including darshan fee
+    darshan_fee = order.booking.persons * 50
+    services_amount = order.total_amount
+    grand_total = darshan_fee + services_amount
+    
     return jsonify({
         'success': True,
         'order_id': order.id,
@@ -848,8 +838,9 @@ def verify_qr():
         'booking_date': order.booking.date.strftime('%d %B %Y'),
         'time_slot': order.booking.time_slot,
         'persons': order.booking.persons,
-        'total_amount': order.total_amount,
-        'darshan_fee': order.booking.persons * 50,
+        'total_amount': grand_total,
+        'darshan_fee': darshan_fee,
+        'services_amount': services_amount,
         'prasads': prasads,
         'poojas': poojas,
         'status': order.status
@@ -917,6 +908,77 @@ def camera_scanner():
     if current_user.role != 'admin':
         return redirect(url_for('index'))
     return render_template('camera_scanner.html')
+
+@app.route('/payment/<int:booking_id>')
+@login_required
+def payment_page(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.user_id != current_user.id:
+        return redirect(url_for('my_bookings'))
+    
+    if booking.payment_status == 'completed':
+        return redirect(url_for('payment_receipt', booking_id=booking_id))
+    
+    return render_template('payment.html', booking=booking)
+
+@app.route('/api/process-payment', methods=['POST'])
+@login_required
+def process_payment():
+    data = request.json
+    booking_id = data.get('booking_id')
+    
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Dummy payment gateway simulation
+    import random
+    payment_success = random.choice([True, True, True, False])  # 75% success rate
+    
+    if payment_success:
+        # Generate transaction ID
+        transaction_id = f'TXN{random.randint(100000, 999999)}'
+        
+        # Update booking status
+        booking.payment_status = 'completed'
+        booking.status = 'confirmed'
+        booking.transaction_id = transaction_id
+        db.session.commit()
+        
+        # Send confirmation email only after successful payment
+        try:
+            qr_code = None
+            order_amount = 0
+            for order in booking.orders:
+                qr_code = order.qr_code
+                order_amount = order.total_amount
+                break
+            send_booking_confirmation_email(booking, qr_code, order_amount)
+        except Exception as e:
+            print(f'Email sending failed: {e}')
+        
+        return jsonify({
+            'success': True,
+            'transaction_id': transaction_id,
+            'message': 'Payment successful'
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Payment failed. Please try again.'
+        })
+
+@app.route('/payment-receipt/<int:booking_id>')
+@login_required
+def payment_receipt(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.user_id != current_user.id:
+        return redirect(url_for('my_bookings'))
+    
+    if booking.payment_status != 'completed':
+        return redirect(url_for('payment_page', booking_id=booking_id))
+    
+    return render_template('payment_receipt.html', booking=booking)
 
 @app.route('/admin/prasad-pooja')
 @login_required
@@ -1071,6 +1133,15 @@ if __name__ == '__main__':
                 db.session.execute(text("ALTER TABLE temple ADD COLUMN description TEXT"))
                 db.session.commit()
                 print("Added enhanced temple columns")
+            
+            # Add payment columns to booking table
+            result = db.session.execute(text("SHOW COLUMNS FROM booking LIKE 'payment_status'"))
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE booking ADD COLUMN payment_status VARCHAR(20) DEFAULT 'pending'"))
+                db.session.execute(text("ALTER TABLE booking ADD COLUMN transaction_id VARCHAR(50)"))
+                db.session.execute(text("ALTER TABLE booking ADD COLUMN total_amount FLOAT NOT NULL DEFAULT 0"))
+                db.session.commit()
+                print("Added payment columns to booking table")
             
             # Add prasad and pooja tables
             try:

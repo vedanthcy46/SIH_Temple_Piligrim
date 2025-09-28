@@ -53,6 +53,7 @@
                                             <p><strong>Time:</strong> <span id="timeSlot"></span></p>
                                             <p><strong>Persons:</strong> <span id="persons"></span></p>
                             <p><strong>Darshan Fee:</strong> ₹<span id="darshanFee"></span></p>
+                            <p><strong>Services:</strong> ₹<span id="servicesAmount"></span></p>
                                         </div>
                                     </div>
                                     
@@ -261,6 +262,7 @@ function showBookingDetails(data) {
     document.getElementById('timeSlot').textContent = data.time_slot;
     document.getElementById('persons').textContent = data.persons;
     document.getElementById('darshanFee').textContent = data.darshan_fee;
+    document.getElementById('servicesAmount').textContent = data.services_amount || 0;
     document.getElementById('totalAmount').textContent = data.total_amount;
     
     // Status badge

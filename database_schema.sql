@@ -1,43 +1,40 @@
--- Temple Pilgrimage Crowd Management System Database Schema (3NF)
--- MySQL Database Schema
+-- Temple Pilgrimage Crowd Management System Database Schema
+-- Database: temple_db
 
-CREATE DATABASE IF NOT EXISTS temple_management_system;
-USE temple_management_system;
+CREATE DATABASE IF NOT EXISTS temple_db;
+USE temple_db;
 
--- Users table (1NF, 2NF, 3NF compliant)
+-- 1. User Table (Pilgrims and Admins)
 CREATE TABLE user (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    phone VARCHAR(15),
     password_hash VARCHAR(200) NOT NULL,
-    role ENUM('user', 'admin', 'rescue') NOT NULL DEFAULT 'user',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    role VARCHAR(20) NOT NULL DEFAULT 'pilgrim',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_email (email),
     INDEX idx_role (role)
 );
 
--- Temples table (1NF, 2NF, 3NF compliant)
+-- 2. Temple Table
 CREATE TABLE temple (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     location VARCHAR(200) NOT NULL,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    capacity INT DEFAULT 1000,
-    opening_time TIME DEFAULT '06:00:00',
-    closing_time TIME DEFAULT '20:00:00',
+    latitude FLOAT,
+    longitude FLOAT,
+    capacity INT DEFAULT 100,
+    opening_time VARCHAR(10) DEFAULT '06:00',
+    closing_time VARCHAR(10) DEFAULT '20:00',
     description TEXT,
-    image_url VARCHAR(200),
+    image_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_active (is_active),
-    INDEX idx_location (latitude, longitude)
+    INDEX idx_location (location)
 );
 
--- Bookings table (1NF, 2NF, 3NF compliant)
+-- 3. Booking Table
 CREATE TABLE booking (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -45,161 +42,250 @@ CREATE TABLE booking (
     date DATE NOT NULL,
     time_slot VARCHAR(20) NOT NULL,
     persons INT NOT NULL,
-    status ENUM('confirmed', 'cancelled', 'completed') DEFAULT 'confirmed',
-    payment_id VARCHAR(100),
-    amount DECIMAL(10, 2) DEFAULT 0.00,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    confirmation_id VARCHAR(20) UNIQUE NOT NULL,
+    status VARCHAR(20) DEFAULT 'confirmed',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
-    INDEX idx_user_date (user_id, date),
-    INDEX idx_temple_date (temple_id, date),
+    INDEX idx_user_id (user_id),
+    INDEX idx_temple_id (temple_id),
+    INDEX idx_date (date),
+    INDEX idx_confirmation_id (confirmation_id),
     INDEX idx_status (status)
 );
 
--- Payments table (1NF, 2NF, 3NF compliant)
-CREATE TABLE payment (
+-- 4. Crowd Table (AI Detection Results)
+CREATE TABLE crowd (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    temple_id INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Low',
+    count INT DEFAULT 0,
+    accuracy FLOAT DEFAULT 0.0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
+    INDEX idx_temple_id (temple_id),
+    INDEX idx_status (status),
+    INDEX idx_updated_at (updated_at)
+);
+
+-- 5. Prasad Table (Temple Offerings)
+CREATE TABLE prasad (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price FLOAT NOT NULL,
+    temple_id INT NOT NULL,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
+    INDEX idx_temple_id (temple_id),
+    INDEX idx_available (is_available)
+);
+
+-- 6. Pooja Table (Special Services)
+CREATE TABLE pooja (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price FLOAT NOT NULL,
+    duration INT DEFAULT 30,
+    temple_id INT NOT NULL,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
+    INDEX idx_temple_id (temple_id),
+    INDEX idx_available (is_available)
+);
+
+-- 7. Order Table (QR Code Orders)
+CREATE TABLE `order` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     booking_id INT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    payment_method ENUM('upi', 'card', 'wallet', 'cash') DEFAULT 'upi',
-    transaction_id VARCHAR(100) UNIQUE,
-    gateway_response TEXT,
-    status ENUM('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    total_amount FLOAT NOT NULL,
+    qr_code VARCHAR(100) UNIQUE NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (booking_id) REFERENCES booking(id) ON DELETE CASCADE,
-    INDEX idx_transaction (transaction_id),
+    INDEX idx_booking_id (booking_id),
+    INDEX idx_qr_code (qr_code),
     INDEX idx_status (status)
 );
 
--- Crowd Data table (1NF, 2NF, 3NF compliant)
-CREATE TABLE crowd_data (
+-- 8. Order Item Table (Prasad & Pooja Items)
+CREATE TABLE order_item (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    temple_id INT NOT NULL,
-    zone VARCHAR(50) DEFAULT 'main',
-    status ENUM('Low', 'Medium', 'High') NOT NULL DEFAULT 'Low',
-    count INT DEFAULT 0,
-    ai_confidence DECIMAL(5, 2) DEFAULT 0.00,
-    detection_method ENUM('manual', 'ai', 'sensor') DEFAULT 'manual',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
-    INDEX idx_temple_zone (temple_id, zone),
-    INDEX idx_updated (updated_at)
-);
-
--- Incidents table (1NF, 2NF, 3NF compliant)
-CREATE TABLE incident (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    temple_id INT NOT NULL,
-    reported_by INT,
-    assigned_to INT,
-    type ENUM('medical', 'security', 'crowd', 'fire', 'structural') NOT NULL,
-    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
-    status ENUM('open', 'assigned', 'in_progress', 'resolved', 'closed') DEFAULT 'open',
-    title VARCHAR(200),
-    description TEXT,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    resolved_at TIMESTAMP NULL,
-    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
-    FOREIGN KEY (reported_by) REFERENCES user(id) ON DELETE SET NULL,
-    FOREIGN KEY (assigned_to) REFERENCES user(id) ON DELETE SET NULL,
-    INDEX idx_temple_status (temple_id, status),
-    INDEX idx_severity (severity),
-    INDEX idx_assigned (assigned_to)
-);
-
--- Notifications table (1NF, 2NF, 3NF compliant)
-CREATE TABLE notification (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    temple_id INT,
-    type ENUM('booking', 'crowd', 'emergency', 'general') NOT NULL,
-    title VARCHAR(200) NOT NULL,
-    message TEXT NOT NULL,
-    is_read BOOLEAN DEFAULT FALSE,
-    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
-    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE SET NULL,
-    INDEX idx_user_read (user_id, is_read),
-    INDEX idx_type (type)
-);
-
--- Audit Log table (1NF, 2NF, 3NF compliant)
-CREATE TABLE audit_log (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    action VARCHAR(100) NOT NULL,
-    table_name VARCHAR(50) NOT NULL,
-    record_id INT,
-    old_values JSON,
-    new_values JSON,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE SET NULL,
-    INDEX idx_user_action (user_id, action),
-    INDEX idx_table_record (table_name, record_id)
-);
-
--- Temple Zones table (1NF, 2NF, 3NF compliant)
-CREATE TABLE temple_zone (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    temple_id INT NOT NULL,
-    zone_name VARCHAR(50) NOT NULL,
-    capacity INT DEFAULT 100,
-    zone_type ENUM('entry', 'exit', 'darshan', 'prasadam', 'parking', 'general') DEFAULT 'general',
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    is_active BOOLEAN DEFAULT TRUE,
-    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_temple_zone (temple_id, zone_name),
-    INDEX idx_temple_type (temple_id, zone_type)
-);
-
--- Festival Calendar table (1NF, 2NF, 3NF compliant)
-CREATE TABLE festival_calendar (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    temple_id INT,
-    festival_name VARCHAR(100) NOT NULL,
-    festival_date DATE NOT NULL,
-    expected_crowd_multiplier DECIMAL(3, 2) DEFAULT 1.00,
-    special_arrangements TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (temple_id) REFERENCES temple(id) ON DELETE SET NULL,
-    INDEX idx_temple_date (temple_id, festival_date)
+    order_id INT NOT NULL,
+    item_type VARCHAR(20) NOT NULL,
+    item_id INT NOT NULL,
+    quantity INT DEFAULT 1,
+    price FLOAT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES `order`(id) ON DELETE CASCADE,
+    INDEX idx_order_id (order_id),
+    INDEX idx_item_type (item_type)
 );
 
 -- Sample Data Insertion
-INSERT INTO temple (name, location, latitude, longitude, capacity, description, image_url) VALUES
-('Somnath Temple', 'Somnath, Gujarat', 20.8880, 70.4017, 2000, 'First Jyotirlinga temple dedicated to Lord Shiva', '/static/images/somnath.jpg'),
-('Dwarka Temple', 'Dwarka, Gujarat', 22.2394, 68.9678, 1500, 'Sacred temple of Lord Krishna', '/static/images/dwarka.jpg'),
-('Ambaji Temple', 'Ambaji, Gujarat', 24.2167, 72.8667, 1200, 'Famous Shakti Peetha temple', '/static/images/ambaji.jpg'),
-('Pavagadh Temple', 'Pavagadh, Gujarat', 22.4833, 73.5333, 800, 'Kalika Mata temple on Pavagadh hill', '/static/images/pavagadh.jpg');
 
-INSERT INTO user (name, email, password_hash, role) VALUES
-('System Admin', 'admin@temple.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PmvlG.', 'admin'),
-('Rescue Team Lead', 'rescue@temple.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PmvlG.', 'rescue'),
-('Demo User', 'user@temple.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PmvlG.', 'user');
+-- Insert Admin User
+INSERT INTO user (name, email, password_hash, role) VALUES 
+('Admin', 'admin@temple.com', 'scrypt:32768:8:1$salt$hash', 'admin');
 
-INSERT INTO temple_zone (temple_id, zone_name, capacity, zone_type, latitude, longitude) VALUES
-(1, 'Main Entry', 200, 'entry', 20.8875, 70.4015),
-(1, 'Darshan Hall', 500, 'darshan', 20.8880, 70.4017),
-(1, 'Prasadam Counter', 100, 'prasadam', 20.8885, 70.4019),
-(1, 'Parking Area', 300, 'parking', 20.8870, 70.4010);
+-- Insert Sample Temples
+INSERT INTO temple (name, location, latitude, longitude, capacity, description, image_url) VALUES 
+('Somnath Temple', 'Somnath, Gujarat', 20.8880, 70.4017, 150, 'First among the twelve Jyotirlinga shrines of Shiva.', 'https://example.com/somnath.jpg'),
+('Dwarka Temple', 'Dwarka, Gujarat', 22.2394, 68.9678, 200, 'Sacred city of Lord Krishna, one of the Char Dham pilgrimage sites.', 'https://example.com/dwarka.jpg'),
+('Ambaji Temple', 'Ambaji, Gujarat', 24.2167, 72.8667, 100, 'One of the 51 Shakti Peethas, dedicated to Goddess Amba.', 'https://example.com/ambaji.jpg'),
+('Pavagadh Temple', 'Pavagadh, Gujarat', 22.4833, 73.5333, 120, 'Kalika Mata temple atop Pavagadh hill, a UNESCO World Heritage site.', 'https://example.com/pavagadh.jpg');
 
-INSERT INTO crowd_data (temple_id, zone, status, count, detection_method) VALUES
-(1, 'main', 'Low', 45, 'ai'),
-(2, 'main', 'Medium', 120, 'ai'),
-(3, 'main', 'Low', 30, 'manual'),
-(4, 'main', 'High', 200, 'ai');
+-- Insert Sample Prasad Items
+INSERT INTO prasad (name, price, temple_id) VALUES 
+('Laddu', 25, 1), ('Coconut', 15, 1), ('Flowers Garland', 20, 1),
+('Modak', 30, 2), ('Tulsi Leaves', 10, 2), ('Butter', 35, 2),
+('Chunri', 50, 3), ('Sindoor', 25, 3), ('Coconut', 15, 3),
+('Prasad Box', 40, 4), ('Flowers', 20, 4), ('Incense', 15, 4);
 
-INSERT INTO festival_calendar (temple_id, festival_name, festival_date, expected_crowd_multiplier) VALUES
-(1, 'Maha Shivratri', '2024-03-08', 3.50),
-(2, 'Janmashtami', '2024-08-26', 4.00),
-(3, 'Navratri', '2024-10-03', 2.50),
-(4, 'Dussehra', '2024-10-12', 2.00);
+-- Insert Sample Pooja Services
+INSERT INTO pooja (name, price, duration, temple_id) VALUES 
+('Abhishek', 101, 30, 1), ('Aarti', 51, 15, 1), ('Rudrabhishek', 251, 45, 1),
+('Mangal Aarti', 75, 20, 2), ('Bhog Offering', 151, 25, 2), ('Krishna Aarti', 101, 30, 2),
+('Mata ki Aarti', 101, 30, 3), ('Durga Path', 201, 45, 3), ('Devi Aarti', 75, 20, 3),
+('Kalika Aarti', 101, 25, 4), ('Special Pooja', 151, 35, 4);
+
+-- Insert Initial Crowd Status
+INSERT INTO crowd (temple_id, status, count, accuracy) VALUES 
+(1, 'Low', 0, 0.0), (2, 'Low', 0, 0.0), (3, 'Low', 0, 0.0), (4, 'Low', 0, 0.0);
+
+-- Database Views for Analytics
+
+-- View: Temple Revenue Summary
+CREATE VIEW temple_revenue_summary AS
+SELECT 
+    t.id,
+    t.name AS temple_name,
+    COUNT(DISTINCT b.id) AS total_bookings,
+    COALESCE(SUM(o.total_amount), 0) AS total_revenue,
+    COALESCE(SUM(CASE WHEN o.status = 'collected' THEN o.total_amount ELSE 0 END), 0) AS collected_revenue,
+    COALESCE(SUM(CASE WHEN o.status = 'pending' THEN o.total_amount ELSE 0 END), 0) AS pending_revenue
+FROM temple t
+LEFT JOIN booking b ON t.id = b.temple_id
+LEFT JOIN `order` o ON b.id = o.booking_id
+WHERE t.is_active = TRUE
+GROUP BY t.id, t.name;
+
+-- View: Daily Booking Summary
+CREATE VIEW daily_booking_summary AS
+SELECT 
+    DATE(b.created_at) AS booking_date,
+    t.name AS temple_name,
+    COUNT(b.id) AS total_bookings,
+    SUM(b.persons) AS total_persons,
+    COALESCE(SUM(o.total_amount), 0) AS total_revenue
+FROM booking b
+JOIN temple t ON b.temple_id = t.id
+LEFT JOIN `order` o ON b.id = o.booking_id
+GROUP BY DATE(b.created_at), t.id, t.name
+ORDER BY booking_date DESC;
+
+-- View: Popular Prasad Items
+CREATE VIEW popular_prasad AS
+SELECT 
+    p.name AS prasad_name,
+    t.name AS temple_name,
+    COUNT(oi.id) AS order_count,
+    SUM(oi.quantity) AS total_quantity,
+    SUM(oi.price) AS total_revenue
+FROM prasad p
+JOIN temple t ON p.temple_id = t.id
+LEFT JOIN order_item oi ON p.id = oi.item_id AND oi.item_type = 'prasad'
+GROUP BY p.id, p.name, t.name
+ORDER BY order_count DESC;
+
+-- View: Popular Pooja Services
+CREATE VIEW popular_pooja AS
+SELECT 
+    pj.name AS pooja_name,
+    t.name AS temple_name,
+    COUNT(oi.id) AS order_count,
+    SUM(oi.price) AS total_revenue,
+    AVG(pj.duration) AS avg_duration
+FROM pooja pj
+JOIN temple t ON pj.temple_id = t.id
+LEFT JOIN order_item oi ON pj.id = oi.item_id AND oi.item_type = 'pooja'
+GROUP BY pj.id, pj.name, t.name
+ORDER BY order_count DESC;
+
+-- Stored Procedures
+
+-- Procedure: Get Temple Statistics
+DELIMITER //
+CREATE PROCEDURE GetTempleStats(IN temple_id INT)
+BEGIN
+    SELECT 
+        t.name,
+        t.capacity,
+        COUNT(DISTINCT b.id) AS total_bookings,
+        COUNT(DISTINCT CASE WHEN DATE(b.created_at) = CURDATE() THEN b.id END) AS today_bookings,
+        COALESCE(SUM(o.total_amount), 0) AS total_revenue,
+        COALESCE(c.status, 'Low') AS current_crowd_status,
+        COALESCE(c.count, 0) AS current_crowd_count
+    FROM temple t
+    LEFT JOIN booking b ON t.id = b.temple_id
+    LEFT JOIN `order` o ON b.id = o.booking_id
+    LEFT JOIN crowd c ON t.id = c.temple_id
+    WHERE t.id = temple_id
+    GROUP BY t.id, t.name, t.capacity, c.status, c.count;
+END //
+DELIMITER ;
+
+-- Procedure: Update Crowd Status
+DELIMITER //
+CREATE PROCEDURE UpdateCrowdStatus(
+    IN temple_id INT, 
+    IN new_status VARCHAR(20), 
+    IN new_count INT, 
+    IN detection_accuracy FLOAT
+)
+BEGIN
+    INSERT INTO crowd (temple_id, status, count, accuracy, updated_at)
+    VALUES (temple_id, new_status, new_count, detection_accuracy, NOW())
+    ON DUPLICATE KEY UPDATE
+        status = new_status,
+        count = new_count,
+        accuracy = detection_accuracy,
+        updated_at = NOW();
+END //
+DELIMITER ;
+
+-- Indexes for Performance Optimization
+CREATE INDEX idx_booking_date_temple ON booking(date, temple_id);
+CREATE INDEX idx_order_created_status ON `order`(created_at, status);
+CREATE INDEX idx_crowd_temple_updated ON crowd(temple_id, updated_at);
+CREATE INDEX idx_user_role_created ON user(role, created_at);
+
+-- Database Constraints
+ALTER TABLE booking ADD CONSTRAINT chk_persons CHECK (persons > 0 AND persons <= 10);
+ALTER TABLE temple ADD CONSTRAINT chk_capacity CHECK (capacity > 0);
+ALTER TABLE prasad ADD CONSTRAINT chk_prasad_price CHECK (price > 0);
+ALTER TABLE pooja ADD CONSTRAINT chk_pooja_price CHECK (price > 0);
+ALTER TABLE `order` ADD CONSTRAINT chk_order_amount CHECK (total_amount >= 0);
+
+-- Triggers for Audit Trail
+DELIMITER //
+CREATE TRIGGER booking_audit AFTER INSERT ON booking
+FOR EACH ROW
+BEGIN
+    INSERT INTO audit_log (table_name, action, record_id, user_id, timestamp)
+    VALUES ('booking', 'INSERT', NEW.id, NEW.user_id, NOW());
+END //
+DELIMITER ;
+
+-- Create Audit Log Table
+CREATE TABLE audit_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    table_name VARCHAR(50) NOT NULL,
+    action VARCHAR(10) NOT NULL,
+    record_id INT NOT NULL,
+    user_id INT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_table_action (table_name, action),
+    INDEX idx_timestamp (timestamp)
+);

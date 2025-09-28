@@ -234,15 +234,8 @@ document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            let message = `✅ Booking Successful!\n\n🎫 Booking ID: ${data.booking_id}\n🔖 Confirmation: ${data.confirmation_id}\n📱 QR Code: ${data.qr_code}`;
-            if (data.order_amount > 0) {
-                message += `\n\n💰 Pre-booked Services: ₹${data.order_amount}\n⚡ Show QR at Pre-booked Collection counter!`;
-            } else {
-                message += `\n\n🙏 Show QR code at temple entrance for verification!`;
-            }
-            message += `\n\n📧 Check your email for complete booking details and QR code!`;
-            alert(message);
-            window.location.href = '/my-bookings';
+            alert(`✅ Booking Created!\n\nBooking ID: ${data.booking_id}\nTotal Amount: ₹${data.total_amount}\n\nRedirecting to payment...`);
+            window.location.href = `/payment/${data.booking_id}`;
         } else {
             alert(`❌ Booking failed: ${data.error || 'Please try again.'}`);
         }
