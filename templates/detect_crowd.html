@@ -10,24 +10,85 @@
                 <h4><i class="bi bi-camera"></i> AI Crowd Detection</h4>
             </div>
             <div class="card-body">
-                <form id="detectForm" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label class="form-label">Upload Image/Video</label>
-                        <input type="file" class="form-control" name="file" accept="image/*,video/*" required>
-                        <small class="text-muted">Supported formats: JPG, PNG, MP4, AVI</small>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-warning btn-lg">
-                            <i class="bi bi-play-circle"></i> Detect Crowd
+                <!-- Detection Mode Tabs -->
+                <ul class="nav nav-tabs mb-3" id="detectionTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="camera-tab" data-bs-toggle="tab" data-bs-target="#camera-panel">
+                            <i class="bi bi-camera-video"></i> Live Camera
                         </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-panel">
+                            <i class="bi bi-upload"></i> Upload File
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <!-- Live Camera Panel -->
+                    <div class="tab-pane fade show active" id="camera-panel">
+                        <div class="mb-3">
+                            <label class="form-label">Select Temple</label>
+                            <select class="form-select" id="cameraTempleSelect" required>
+                                <option value="">Choose temple...</option>
+                                {% for temple in temples %}
+                                <option value="{{ temple.id }}">{{ temple.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="text-center mb-3">
+                            <video id="cameraVideo" width="400" height="300" style="border-radius: 10px; display: none;"></video>
+                            <canvas id="captureCanvas" width="400" height="300" style="display: none;"></canvas>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button id="startCamera" class="btn btn-success btn-lg">
+                                <i class="bi bi-camera"></i> Start Live Detection
+                            </button>
+                            <button id="stopCamera" class="btn btn-danger" style="display: none;">
+                                <i class="bi bi-stop-circle"></i> Stop Detection
+                            </button>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle"></i> Live detection analyzes camera feed every 3 seconds for real-time crowd monitoring.
+                        </div>
                     </div>
-                </form>
+                    
+                    <!-- Upload File Panel -->
+                    <div class="tab-pane fade" id="upload-panel">
+                        <form id="detectForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Select Temple</label>
+                                <select class="form-select" name="temple_id" required>
+                                    <option value="">Choose temple...</option>
+                                    {% for temple in temples %}
+                                    <option value="{{ temple.id }}">{{ temple.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Upload Image/Video</label>
+                                <input type="file" class="form-control" name="file" accept="image/*,video/*" required>
+                                <small class="text-muted">Supported formats: JPG, PNG, MP4, AVI</small>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-warning btn-lg">
+                                    <i class="bi bi-play-circle"></i> Detect Crowd
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
                 
                 <div id="results" class="mt-4" style="display: none;">
                     <div class="alert alert-info">
                         <h5>Detection Results:</h5>
+                        <p><strong>Temple:</strong> <span id="templeName"></span></p>
                         <p><strong>People Count:</strong> <span id="count"></span></p>
                         <p><strong>Crowd Status:</strong> <span id="status" class="badge"></span></p>
+                        <p><strong>Accuracy:</strong> <span id="accuracy"></span>%</p>
                     </div>
                 </div>
                 
@@ -42,17 +103,105 @@
         
         <div class="card mt-4">
             <div class="card-header">
-                <h6>Latest Detection Results</h6>
+                <h6>Temple Crowd Status</h6>
             </div>
-            <div class="card-body text-center">
-                <h4 id="latestStatus">Loading...</h4>
-                <p id="latestCount" class="text-muted"></p>
+            <div class="card-body">
+                <div class="row" id="templeStatus">
+                    {% for temple in temples %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center py-2">
+                                <h6 class="mb-1">{{ temple.name }}</h6>
+                                <span class="badge bg-secondary temple-status" data-temple-id="{{ temple.id }}">Loading...</span>
+                                <div class="temple-count text-muted small" data-temple-id="{{ temple.id }}">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
+let cameraStream = null;
+let detectionInterval = null;
+
+// Live Camera Detection
+document.getElementById('startCamera').addEventListener('click', async function() {
+    const templeSelect = document.getElementById('cameraTempleSelect');
+    if (!templeSelect.value) {
+        alert('Please select a temple first');
+        return;
+    }
+    
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('cameraVideo');
+        video.srcObject = cameraStream;
+        video.style.display = 'block';
+        video.play();
+        
+        document.getElementById('startCamera').style.display = 'none';
+        document.getElementById('stopCamera').style.display = 'block';
+        
+        // Start detection every 3 seconds
+        detectionInterval = setInterval(() => {
+            captureAndDetect();
+        }, 3000);
+        
+    } catch (error) {
+        alert('Camera access denied or not available');
+    }
+});
+
+document.getElementById('stopCamera').addEventListener('click', function() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    
+    if (detectionInterval) {
+        clearInterval(detectionInterval);
+        detectionInterval = null;
+    }
+    
+    document.getElementById('cameraVideo').style.display = 'none';
+    document.getElementById('startCamera').style.display = 'block';
+    document.getElementById('stopCamera').style.display = 'none';
+});
+
+function captureAndDetect() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('captureCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Capture frame from video
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert to blob and send for detection
+    canvas.toBlob(blob => {
+        const formData = new FormData();
+        formData.append('file', blob, 'camera_capture.jpg');
+        formData.append('temple_id', document.getElementById('cameraTempleSelect').value);
+        
+        fetch('/detect-crowd', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                updateResults(data, 'Live Camera');
+                loadTempleStatus();
+            }
+        })
+        .catch(error => console.error('Detection error:', error));
+    }, 'image/jpeg', 0.8);
+}
+
+// File Upload Detection
 document.getElementById('detectForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -76,12 +225,12 @@ document.getElementById('detectForm').addEventListener('submit', function(e) {
             return;
         }
         
-        document.getElementById('count').textContent = data.count;
-        document.getElementById('status').textContent = data.status;
-        document.getElementById('status').className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+        const templeSelect = document.querySelector('select[name="temple_id"]');
+        const selectedOption = templeSelect.options[templeSelect.selectedIndex];
+        updateResults(data, selectedOption.text);
         
         results.style.display = 'block';
-        loadLatestStatus();
+        loadTempleStatus();
     })
     .catch(error => {
         loading.style.display = 'none';
@@ -89,16 +238,35 @@ document.getElementById('detectForm').addEventListener('submit', function(e) {
     });
 });
 
-function loadLatestStatus() {
-    fetch('/crowd-status')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('latestStatus').textContent = `Current: ${data.status}`;
-            document.getElementById('latestCount').textContent = `People detected: ${data.count}`;
-        });
+function updateResults(data, templeName) {
+    document.getElementById('count').textContent = data.count;
+    document.getElementById('status').textContent = data.status;
+    document.getElementById('status').className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+    document.getElementById('accuracy').textContent = Math.round(data.accuracy * 100);
+    document.getElementById('templeName').textContent = templeName;
+    document.getElementById('results').style.display = 'block';
 }
 
-loadLatestStatus();
-setInterval(loadLatestStatus, 10000);
+function loadTempleStatus() {
+    document.querySelectorAll('.temple-status').forEach(badge => {
+        const templeId = badge.dataset.templeId;
+        fetch(`/api/temple/${templeId}/crowd`)
+            .then(response => response.json())
+            .then(data => {
+                badge.textContent = data.status;
+                badge.className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+                
+                const countElement = document.querySelector(`.temple-count[data-temple-id="${templeId}"]`);
+                countElement.textContent = `${data.count} people (${Math.round(data.accuracy * 100)}% accuracy)`;
+            })
+            .catch(() => {
+                badge.textContent = 'No Data';
+                badge.className = 'badge bg-secondary';
+            });
+    });
+}
+
+loadTempleStatus();
+setInterval(loadTempleStatus, 5000); // Faster refresh for live detection
 </script>
 {% endblock %}

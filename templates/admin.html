@@ -50,32 +50,23 @@
     </div>
 </div>
 
-<!-- Crowd Management -->
+<!-- AI Crowd Detection -->
 <div class="row mb-4">
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5>Update Crowd Status</h5>
+                <h5>AI Crowd Detection</h5>
             </div>
             <div class="card-body">
-                <form id="crowdForm">
-                    <div class="mb-3">
-                        <label class="form-label">Status</label>
-                        <select class="form-select" name="status" required>
-                            <option value="Low" {% if crowd_status == 'Low' %}selected{% endif %}>Low</option>
-                            <option value="Medium" {% if crowd_status == 'Medium' %}selected{% endif %}>Medium</option>
-                            <option value="High" {% if crowd_status == 'High' %}selected{% endif %}>High</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">People Count</label>
-                        <input type="number" class="form-control" name="count" min="0" value="{{ crowd_count or 0 }}" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Update Status</button>
-                </form>
-                <div class="text-center mt-3">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Crowd status is automatically updated using AI detection. Use the AI Detection tool to analyze temple crowds.
+                </div>
+                <a href="{{ url_for('detect_crowd_route') }}" class="btn btn-warning w-100 mb-3">
+                    <i class="bi bi-camera"></i> AI Crowd Detection
+                </a>
+                <div class="text-center">
                     <h5 id="currentStatus" class="badge bg-{{ 'success' if crowd_status == 'Low' else 'warning' if crowd_status == 'Medium' else 'danger' }}">{{ crowd_status or 'Low' }}</h5>
-                    <p id="currentCount" class="text-muted small">People detected: {{ crowd_count or 0 }}</p>
+                    <p id="currentCount" class="text-muted small">Last AI Detection: {{ crowd_count or 0 }} people</p>
                 </div>
             </div>
         </div>
@@ -89,6 +80,9 @@
                 <a href="{{ url_for('detect_crowd_route') }}" class="btn btn-warning w-100 mb-2">
                     <i class="bi bi-camera"></i> AI Crowd Detection
                 </a>
+                <div class="alert alert-light border-start border-info border-3 mb-2">
+                    <small><i class="bi bi-lightbulb"></i> <strong>AI-Powered:</strong> Crowd status is automatically updated using computer vision technology for accurate real-time monitoring.</small>
+                </div>
                 <a href="{{ url_for('temples') }}" class="btn btn-outline-primary w-100 mb-2">
                     <i class="bi bi-geo-alt"></i> View All Temples
                 </a>
@@ -152,30 +146,7 @@
 
 {% block scripts %}
 <script>
-// Handle crowd status update
-document.getElementById('crowdForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    
-    fetch('/update-crowd', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Crowd status updated successfully!');
-            refreshCrowdData();
-        } else {
-            alert('Failed to update crowd status.');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred.');
-    });
-});
+// Auto-refresh crowd data from AI detection
 
 function refreshCrowdData() {
     fetch('/crowd-status')

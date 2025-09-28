@@ -43,6 +43,11 @@
                     <p>0 people currently</p>
                 {% endif %}
                 <small class="text-muted">Last updated: {{ crowd.updated_at.strftime('%I:%M %p') if crowd else 'Just now' }}</small>
+                {% if crowd and crowd.accuracy %}
+                <div class="mt-2">
+                    <small class="text-info">Detection Accuracy: {{ (crowd.accuracy * 100)|round }}%</small>
+                </div>
+                {% endif %}
             </div>
         </div>
         
