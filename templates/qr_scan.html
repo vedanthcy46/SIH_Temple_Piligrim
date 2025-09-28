@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="bi bi-qr-code-scan"></i> QR Code Scanner</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Enter QR Code</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="qrInput" placeholder="Scan or enter QR code">
+                        <button class="btn btn-primary" id="verifyBtn">Verify</button>
+                    </div>
+                </div>
+                
+                <div id="orderDetails" class="mt-4" style="display: none;">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h5>Order Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Customer:</strong> <span id="customerName"></span></p>
+                                    <p><strong>Temple:</strong> <span id="templeName"></span></p>
+                                    <p><strong>Total Amount:</strong> ₹<span id="totalAmount"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Order ID:</strong> <span id="orderId"></span></p>
+                                    <p><strong>Booking ID:</strong> <span id="bookingId"></span></p>
+                                    <p><strong>Status:</strong> <span id="orderStatus"></span></p>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <h6>Prasad Items</h6>
+                                    <ul id="prasadList" class="list-unstyled"></ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Pooja Services</h6>
+                                    <ul id="poojaList" class="list-unstyled"></ul>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center mt-3">
+                                <button class="btn btn-success btn-lg" id="collectBtn">
+                                    <i class="bi bi-check-circle"></i> Mark as Collected
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="errorMessage" class="alert alert-danger mt-3" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('verifyBtn').addEventListener('click', verifyQR);
+document.getElementById('qrInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') verifyQR();
+});
+
+function verifyQR() {
+    const qrCode = document.getElementById('qrInput').value.trim();
+    if (!qrCode) {
+        showError('Please enter a QR code');
+        return;
+    }
+    
+    fetch('/api/verify-qr', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({qr_code: qrCode})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showOrderDetails(data);
+        } else {
+            showError(data.error);
+        }
+    })
+    .catch(error => {
+        showError('Verification failed: ' + error.message);
+    });
+}
+
+function showOrderDetails(data) {
+    document.getElementById('orderDetails').style.display = 'block';
+    document.getElementById('errorMessage').style.display = 'none';
+    
+    document.getElementById('customerName').textContent = data.user_name;
+    document.getElementById('templeName').textContent = data.temple_name;
+    document.getElementById('totalAmount').textContent = data.total_amount;
+    document.getElementById('orderId').textContent = data.order_id;
+    document.getElementById('bookingId').textContent = data.booking_id;
+    document.getElementById('orderStatus').textContent = data.status.toUpperCase();
+    
+    // Display prasad items
+    const prasadList = document.getElementById('prasadList');
+    prasadList.innerHTML = '';
+    data.prasads.forEach(prasad => {
+        const li = document.createElement('li');
+        li.innerHTML = `<i class="bi bi-gift"></i> ${prasad.name} x${prasad.quantity} - ₹${prasad.price}`;
+        prasadList.appendChild(li);
+    });
+    
+    // Display pooja services
+    const poojaList = document.getElementById('poojaList');
+    poojaList.innerHTML = '';
+    data.poojas.forEach(pooja => {
+        const li = document.createElement('li');
+        li.innerHTML = `<i class="bi bi-candle"></i> ${pooja.name} (${pooja.duration}min) - ₹${pooja.price}`;
+        poojaList.appendChild(li);
+    });
+    
+    // Set up collect button
+    const collectBtn = document.getElementById('collectBtn');
+    if (data.status === 'collected') {
+        collectBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Already Collected';
+        collectBtn.disabled = true;
+        collectBtn.className = 'btn btn-secondary btn-lg';
+    } else {
+        collectBtn.onclick = () => collectOrder(data.order_id);
+        collectBtn.disabled = false;
+        collectBtn.className = 'btn btn-success btn-lg';
+    }
+}
+
+function collectOrder(orderId) {
+    fetch('/api/collect-order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({order_id: orderId})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Order marked as collected successfully!');
+            document.getElementById('collectBtn').innerHTML = '<i class="bi bi-check-circle-fill"></i> Collected';
+            document.getElementById('collectBtn').disabled = true;
+            document.getElementById('collectBtn').className = 'btn btn-secondary btn-lg';
+            document.getElementById('orderStatus').textContent = 'COLLECTED';
+        } else {
+            showError(data.error);
+        }
+    })
+    .catch(error => {
+        showError('Collection failed: ' + error.message);
+    });
+}
+
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    document.getElementById('errorMessage').style.display = 'block';
+    document.getElementById('orderDetails').style.display = 'none';
+}
+</script>
+{% endblock %}

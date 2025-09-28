@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="bi bi-camera"></i> Camera QR Scanner - Temple Management</h4>
+            </div>
+            <div class="card-body">
+                <!-- Camera Section -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="text-center mb-3">
+                            <video id="cameraVideo" width="100%" height="300" style="border: 2px solid #007bff; border-radius: 10px; display: none;"></video>
+                            <canvas id="qrCanvas" style="display: none;"></canvas>
+                            <div id="cameraPlaceholder" class="bg-light d-flex align-items-center justify-content-center" style="height: 300px; border: 2px dashed #ccc; border-radius: 10px;">
+                                <div class="text-center">
+                                    <i class="bi bi-camera-video" style="font-size: 3rem; color: #ccc;"></i>
+                                    <p class="text-muted mt-2">Click "Start Camera" to begin scanning</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button id="startCamera" class="btn btn-success btn-lg">
+                                <i class="bi bi-camera"></i> Start Camera Scanner
+                            </button>
+                            <button id="stopCamera" class="btn btn-danger" style="display: none;">
+                                <i class="bi bi-stop-circle"></i> Stop Scanner
+                            </button>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle"></i> Position QR code within camera view for automatic scanning
+                        </div>
+                    </div>
+                    
+                    <!-- Results Section -->
+                    <div class="col-md-6">
+                        <div id="scanResults" style="display: none;">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5><i class="bi bi-check-circle"></i> Booking Verified</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6>Customer Details</h6>
+                                            <p><strong>Name:</strong> <span id="customerName"></span></p>
+                                            <p><strong>Temple:</strong> <span id="templeName"></span></p>
+                                            <p><strong>Date:</strong> <span id="bookingDate"></span></p>
+                                            <p><strong>Time:</strong> <span id="timeSlot"></span></p>
+                                            <p><strong>Persons:</strong> <span id="persons"></span></p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <h6>Prasad Items</h6>
+                                            <ul id="prasadList" class="list-unstyled small"></ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Pooja Services</h6>
+                                            <ul id="poojaList" class="list-unstyled small"></ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-center mt-3">
+                                        <h5>Total Amount: ₹<span id="totalAmount"></span></h5>
+                                        <p>Status: <span id="orderStatus" class="badge"></span></p>
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2 mt-3">
+                                        <button class="btn btn-success btn-lg" id="verifyBtn">
+                                            <i class="bi bi-check-circle"></i> Mark as Collected
+                                        </button>
+                                        <button class="btn btn-secondary" id="scanAgainBtn">
+                                            <i class="bi bi-arrow-clockwise"></i> Scan Another QR
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="errorResults" class="alert alert-danger" style="display: none;">
+                            <h6><i class="bi bi-x-circle"></i> Verification Failed</h6>
+                            <p id="errorMessage"></p>
+                            <button class="btn btn-secondary" id="retryBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Try Again
+                            </button>
+                        </div>
+                        
+                        <div id="scanningStatus" class="alert alert-info">
+                            <h6><i class="bi bi-search"></i> Ready to Scan</h6>
+                            <p>Position QR code in camera view for automatic detection</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Scans -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="bi bi-clock-history"></i> Recent Verifications</h5>
+            </div>
+            <div class="card-body">
+                <div id="recentScans">
+                    <p class="text-muted">No recent scans</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script>
+let cameraStream = null;
+let scanningInterval = null;
+let currentOrderId = null;
+
+// Start Camera
+document.getElementById('startCamera').addEventListener('click', async function() {
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } // Use back camera if available
+        });
+        
+        const video = document.getElementById('cameraVideo');
+        video.srcObject = cameraStream;
+        video.style.display = 'block';
+        video.play();
+        
+        document.getElementById('cameraPlaceholder').style.display = 'none';
+        document.getElementById('startCamera').style.display = 'none';
+        document.getElementById('stopCamera').style.display = 'block';
+        
+        // Start QR scanning
+        startQRScanning();
+        
+    } catch (error) {
+        alert('Camera access denied or not available: ' + error.message);
+    }
+});
+
+// Stop Camera
+document.getElementById('stopCamera').addEventListener('click', function() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    
+    if (scanningInterval) {
+        clearInterval(scanningInterval);
+        scanningInterval = null;
+    }
+    
+    document.getElementById('cameraVideo').style.display = 'none';
+    document.getElementById('cameraPlaceholder').style.display = 'flex';
+    document.getElementById('startCamera').style.display = 'block';
+    document.getElementById('stopCamera').style.display = 'none';
+    
+    resetResults();
+});
+
+// QR Code Scanning
+function startQRScanning() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('qrCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    scanningInterval = setInterval(() => {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (code) {
+                // QR Code detected
+                console.log('QR Code detected:', code.data);
+                document.getElementById('scanningStatus').innerHTML = `
+                    <h6><i class="bi bi-qr-code"></i> QR Code Detected</h6>
+                    <p>Verifying: ${code.data}</p>
+                `;
+                
+                verifyQRCode(code.data);
+                clearInterval(scanningInterval); // Stop scanning after detection
+            }
+        }
+    }, 500); // Scan every 500ms
+}
+
+// Verify QR Code
+function verifyQRCode(qrData) {
+    console.log('Verifying QR code:', qrData);
+    
+    fetch('/api/verify-qr', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({qr_code: qrData})
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            showBookingDetails(data);
+            addToRecentScans(data, 'success');
+        } else {
+            showError(data.error);
+            addToRecentScans({qr_code: qrData, error: data.error}, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Verification error:', error);
+        showError('Verification failed: ' + error.message);
+        addToRecentScans({qr_code: qrData, error: error.message}, 'error');
+    });
+}
+
+// Show Booking Details
+function showBookingDetails(data) {
+    currentOrderId = data.order_id;
+    
+    document.getElementById('scanResults').style.display = 'block';
+    document.getElementById('errorResults').style.display = 'none';
+    document.getElementById('scanningStatus').style.display = 'none';
+    
+    document.getElementById('customerName').textContent = data.user_name;
+    document.getElementById('templeName').textContent = data.temple_name;
+    document.getElementById('bookingDate').textContent = data.booking_date;
+    document.getElementById('timeSlot').textContent = data.time_slot;
+    document.getElementById('persons').textContent = data.persons;
+    document.getElementById('darshanFee').textContent = data.darshan_fee;
+    document.getElementById('totalAmount').textContent = data.total_amount;
+    
+    // Status badge
+    const statusBadge = document.getElementById('orderStatus');
+    statusBadge.textContent = data.status.toUpperCase();
+    statusBadge.className = `badge bg-${data.status === 'collected' ? 'success' : 'warning'}`;
+    
+    // Prasad items
+    const prasadList = document.getElementById('prasadList');
+    prasadList.innerHTML = '';
+    data.prasads.forEach(prasad => {
+        const li = document.createElement('li');
+        li.innerHTML = `<i class="bi bi-gift text-success"></i> ${prasad.name} x${prasad.quantity} - ₹${prasad.price}`;
+        prasadList.appendChild(li);
+    });
+    
+    // Pooja services
+    const poojaList = document.getElementById('poojaList');
+    poojaList.innerHTML = '';
+    data.poojas.forEach(pooja => {
+        const li = document.createElement('li');
+        li.innerHTML = `<i class="bi bi-candle text-warning"></i> ${pooja.name} (${pooja.duration}min) - ₹${pooja.price}`;
+        poojaList.appendChild(li);
+    });
+    
+    // Verify button
+    const verifyBtn = document.getElementById('verifyBtn');
+    if (data.status === 'collected') {
+        verifyBtn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Already Collected';
+        verifyBtn.disabled = true;
+        verifyBtn.className = 'btn btn-secondary btn-lg';
+    } else {
+        verifyBtn.onclick = () => markAsCollected(data.order_id);
+        verifyBtn.disabled = false;
+        verifyBtn.className = 'btn btn-success btn-lg';
+    }
+}
+
+// Show Error
+function showError(message) {
+    document.getElementById('scanResults').style.display = 'none';
+    document.getElementById('errorResults').style.display = 'block';
+    document.getElementById('scanningStatus').style.display = 'none';
+    document.getElementById('errorMessage').textContent = message;
+}
+
+// Mark as Collected
+function markAsCollected(orderId) {
+    fetch('/api/collect-order', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({order_id: orderId})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Order marked as collected successfully!');
+            document.getElementById('verifyBtn').innerHTML = '<i class="bi bi-check-circle-fill"></i> Collected';
+            document.getElementById('verifyBtn').disabled = true;
+            document.getElementById('verifyBtn').className = 'btn btn-secondary btn-lg';
+            document.getElementById('orderStatus').textContent = 'COLLECTED';
+            document.getElementById('orderStatus').className = 'badge bg-success';
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    });
+}
+
+// Reset Results
+function resetResults() {
+    document.getElementById('scanResults').style.display = 'none';
+    document.getElementById('errorResults').style.display = 'none';
+    document.getElementById('scanningStatus').style.display = 'block';
+    document.getElementById('scanningStatus').innerHTML = `
+        <h6><i class="bi bi-search"></i> Ready to Scan</h6>
+        <p>Position QR code in camera view for automatic detection</p>
+    `;
+}
+
+// Scan Again
+document.getElementById('scanAgainBtn').addEventListener('click', function() {
+    resetResults();
+    if (cameraStream) {
+        startQRScanning();
+    }
+});
+
+document.getElementById('retryBtn').addEventListener('click', function() {
+    resetResults();
+    if (cameraStream) {
+        startQRScanning();
+    }
+});
+
+// Add to Recent Scans
+function addToRecentScans(data, type) {
+    const recentDiv = document.getElementById('recentScans');
+    const time = new Date().toLocaleTimeString();
+    
+    const scanItem = document.createElement('div');
+    scanItem.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+    scanItem.innerHTML = `
+        <strong>${time}</strong> - ${type === 'success' ? 
+            `✅ ${data.user_name} (₹${data.total_amount})` : 
+            `❌ ${data.error}`
+        }
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    if (recentDiv.querySelector('p')) {
+        recentDiv.innerHTML = '';
+    }
+    
+    recentDiv.insertBefore(scanItem, recentDiv.firstChild);
+    
+    // Keep only last 5 scans
+    const scans = recentDiv.querySelectorAll('.alert');
+    if (scans.length > 5) {
+        scans[scans.length - 1].remove();
+    }
+}
+</script>
+{% endblock %}

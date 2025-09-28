@@ -26,6 +26,29 @@
                 {% if booking.confirmation_id %}
                 <p><i class="bi bi-check-circle"></i> Confirmation: <code>{{ booking.confirmation_id }}</code></p>
                 {% endif %}
+                {% for order in booking.orders %}
+                <div class="alert alert-success mt-2">
+                    <h6><i class="bi bi-qr-code"></i> {% if order.total_amount > 0 %}Pre-booked Services{% else %}Darshan Entry{% endif %}</h6>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p><strong>QR Code:</strong> <code>{{ order.qr_code }}</code></p>
+                            {% if order.total_amount > 0 %}
+                            <p><strong>Services Amount:</strong> ₹{{ order.total_amount }}</p>
+                            {% endif %}
+                            <p><strong>Darshan Fee:</strong> ₹{{ booking.persons * 50 }}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="badge bg-{{ 'success' if order.status == 'collected' else 'warning' }}">
+                                    {{ order.status.title() }}
+                                </span>
+                            </p>
+                            <small class="text-muted">Show this QR code at temple {% if order.total_amount > 0 %}Pre-booked Collection counter{% else %}entrance for verification{% endif %}</small>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ order.qr_code }}" alt="QR Code" class="img-fluid">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
                 <small class="text-muted">Booked on: {{ booking.created_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
             </div>
             <div class="card-footer">

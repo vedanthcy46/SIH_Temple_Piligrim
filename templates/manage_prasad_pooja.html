@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Manage Prasad & Pooja</h2>
+        <p class="text-muted">Add, edit, and monitor temple offerings and services</p>
+    </div>
+</div>
+
+<!-- Revenue Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4>₹<span id="dailyRevenue">{{ daily_revenue or 0 }}</span></h4>
+                <p class="mb-0">Today's Revenue</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h4>₹{{ total_revenue }}</h4>
+                <p class="mb-0">Total Revenue</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h4>₹{{ prasad_revenue }}</h4>
+                <p class="mb-0">Prasad Revenue</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4>₹{{ pooja_revenue }}</h4>
+                <p class="mb-0">Pooja Revenue</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Management Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#prasad-tab">
+            <i class="bi bi-gift"></i> Manage Prasad
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pooja-tab">
+            <i class="bi bi-candle"></i> Manage Pooja
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- Prasad Management -->
+    <div class="tab-pane fade show active" id="prasad-tab">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Add New Prasad</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="prasadForm">
+                            <div class="mb-3">
+                                <label class="form-label">Temple</label>
+                                <select class="form-select" name="temple_id" required>
+                                    {% for temple in temples %}
+                                    <option value="{{ temple.id }}">{{ temple.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Prasad Name</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Price (₹)</label>
+                                <input type="number" class="form-control" name="price" min="1" required>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Add Prasad</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Existing Prasads</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Temple</th>
+                                        <th>Name</th>
+                                        <th>Price</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prasadTable">
+                                    {% for prasad in prasads %}
+                                    <tr data-id="{{ prasad.id }}">
+                                        <td>{{ prasad.temple.name }}</td>
+                                        <td class="prasad-name">{{ prasad.name }}</td>
+                                        <td class="prasad-price">₹{{ prasad.price }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if prasad.is_available else 'secondary' }}">
+                                                {{ 'Available' if prasad.is_available else 'Unavailable' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary edit-prasad">Edit</button>
+                                            <button class="btn btn-sm btn-danger delete-prasad">Delete</button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pooja Management -->
+    <div class="tab-pane fade" id="pooja-tab">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Add New Pooja</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="poojaForm">
+                            <div class="mb-3">
+                                <label class="form-label">Temple</label>
+                                <select class="form-select" name="temple_id" required>
+                                    {% for temple in temples %}
+                                    <option value="{{ temple.id }}">{{ temple.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Pooja Name</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Price (₹)</label>
+                                <input type="number" class="form-control" name="price" min="1" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Duration (minutes)</label>
+                                <input type="number" class="form-control" name="duration" min="5" value="30" required>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Add Pooja</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Existing Poojas</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Temple</th>
+                                        <th>Name</th>
+                                        <th>Price</th>
+                                        <th>Duration</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="poojaTable">
+                                    {% for pooja in poojas %}
+                                    <tr data-id="{{ pooja.id }}">
+                                        <td>{{ pooja.temple.name }}</td>
+                                        <td class="pooja-name">{{ pooja.name }}</td>
+                                        <td class="pooja-price">₹{{ pooja.price }}</td>
+                                        <td class="pooja-duration">{{ pooja.duration }} mins</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if pooja.is_available else 'secondary' }}">
+                                                {{ 'Available' if pooja.is_available else 'Unavailable' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary edit-pooja">Edit</button>
+                                            <button class="btn btn-sm btn-danger delete-pooja">Delete</button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Prasad Management
+document.getElementById('prasadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    fetch('/api/prasad', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(Object.fromEntries(formData))
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Prasad added successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+});
+
+// Pooja Management
+document.getElementById('poojaForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    fetch('/api/pooja', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(Object.fromEntries(formData))
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Pooja added successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+});
+
+// Delete functions
+document.querySelectorAll('.delete-prasad').forEach(btn => {
+    btn.addEventListener('click', function() {
+        if (confirm('Delete this prasad?')) {
+            const id = this.closest('tr').dataset.id;
+            fetch('/api/prasad', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.closest('tr').remove();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+    });
+});
+
+document.querySelectorAll('.delete-pooja').forEach(btn => {
+    btn.addEventListener('click', function() {
+        if (confirm('Delete this pooja?')) {
+            const id = this.closest('tr').dataset.id;
+            fetch('/api/pooja', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.closest('tr').remove();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+    });
+});
+
+// Auto-refresh revenue stats
+function updateRevenue() {
+    fetch('/api/revenue-stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('dailyRevenue').textContent = data.daily_revenue;
+        });
+}
+
+setInterval(updateRevenue, 30000); // Update every 30 seconds
+</script>
+{% endblock %}

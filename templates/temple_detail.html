@@ -79,11 +79,48 @@
                             <label class="form-label">Number of People</label>
                             <input type="number" class="form-control" id="persons" min="1" max="10" value="1" required>
                         </div>
+                        
+                        <!-- Prasad Selection -->
                         <div class="mb-3">
-                            <label class="form-label">Amount (₹)</label>
-                            <input type="number" class="form-control" id="amount" value="50" readonly>
+                            <label class="form-label">Select Prasad (Optional)</label>
+                            {% if prasads %}
+                                {% for prasad in prasads %}
+                                <div class="form-check d-flex align-items-center mb-2">
+                                    <input class="form-check-input prasad-item me-2" type="checkbox" value="{{ prasad.id }}" id="prasad{{ prasad.id }}" data-price="{{ prasad.price }}">
+                                    <label class="form-check-label flex-grow-1" for="prasad{{ prasad.id }}">
+                                        {{ prasad.name }} - ₹{{ prasad.price }}
+                                    </label>
+                                    <input type="number" class="form-control form-control-sm" style="width: 70px;" min="1" value="1" id="qty{{ prasad.id }}" disabled>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted small">No prasad available for this temple</p>
+                            {% endif %}
                         </div>
-                        <button type="submit" class="btn btn-success w-100">Book Now</button>
+                        
+                        <!-- Pooja Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Select Special Pooja (Optional)</label>
+                            {% if poojas %}
+                                {% for pooja in poojas %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input pooja-item" type="checkbox" value="{{ pooja.id }}" id="pooja{{ pooja.id }}" data-price="{{ pooja.price }}">
+                                    <label class="form-check-label" for="pooja{{ pooja.id }}">
+                                        {{ pooja.name }} - ₹{{ pooja.price }} ({{ pooja.duration }} mins)
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted small">No special poojas available for this temple</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Total Amount (₹)</label>
+                            <input type="number" class="form-control" id="amount" value="50" readonly>
+                            <small class="text-muted">Darshan: ₹50 + Prasad & Pooja charges</small>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Book Darshan & Services</button>
                     </form>
                 {% else %}
                     <div class="text-center">
@@ -101,21 +138,90 @@
 // Set minimum date to today
 document.getElementById('bookingDate').min = new Date().toISOString().split('T')[0];
 
-// Update amount based on persons
-document.getElementById('persons').addEventListener('input', function() {
-    const persons = parseInt(this.value) || 1;
-    document.getElementById('amount').value = persons * 50;
+// Update amount calculation
+function updateTotalAmount() {
+    const persons = parseInt(document.getElementById('persons').value) || 1;
+    let total = persons * 50; // Base darshan cost
+    
+    // Add prasad costs
+    document.querySelectorAll('.prasad-item:checked').forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price);
+        const qty = parseInt(document.getElementById('qty' + checkbox.value).value) || 1;
+        total += price * qty;
+    });
+    
+    // Add pooja costs
+    document.querySelectorAll('.pooja-item:checked').forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price);
+        total += price;
+    });
+    
+    document.getElementById('amount').value = total;
+}
+
+// Event listeners for amount calculation
+document.getElementById('persons').addEventListener('input', updateTotalAmount);
+
+// Initialize prasad event listeners
+function initializePrasadListeners() {
+    document.querySelectorAll('.prasad-item').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const qtyInput = document.getElementById('qty' + this.value);
+            if (qtyInput) {
+                qtyInput.disabled = !this.checked;
+                if (!this.checked) qtyInput.value = 1;
+            }
+            updateTotalAmount();
+        });
+    });
+    
+    document.querySelectorAll('[id^="qty"]').forEach(input => {
+        input.addEventListener('input', updateTotalAmount);
+    });
+}
+
+// Initialize pooja event listeners
+function initializePoojaListeners() {
+    document.querySelectorAll('.pooja-item').forEach(checkbox => {
+        checkbox.addEventListener('change', updateTotalAmount);
+    });
+}
+
+// Initialize all listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializePrasadListeners();
+    initializePoojaListeners();
+    updateTotalAmount(); // Initial calculation
 });
 
 // Handle booking form submission
 document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     
+    // Collect prasad selections
+    const prasads = [];
+    document.querySelectorAll('.prasad-item:checked').forEach(checkbox => {
+        prasads.push({
+            id: parseInt(checkbox.value),
+            quantity: parseInt(document.getElementById('qty' + checkbox.value).value) || 1
+        });
+    });
+    
+    // Collect pooja selections
+    const poojas = [];
+    document.querySelectorAll('.pooja-item:checked').forEach(checkbox => {
+        poojas.push({
+            id: parseInt(checkbox.value)
+        });
+    });
+    
     const formData = {
         temple_id: {{ temple.id }},
         date: document.getElementById('bookingDate').value,
         time_slot: document.getElementById('timeSlot').value,
-        persons: parseInt(document.getElementById('persons').value)
+        persons: parseInt(document.getElementById('persons').value),
+        prasads: prasads,
+        poojas: poojas
     };
     
     fetch('/api/book', {
@@ -128,10 +234,17 @@ document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`Booking successful! Booking ID: ${data.booking_id}\nConfirmation ID: ${data.confirmation_id || 'N/A'}`);
+            let message = `✅ Booking Successful!\n\n🎫 Booking ID: ${data.booking_id}\n🔖 Confirmation: ${data.confirmation_id}\n📱 QR Code: ${data.qr_code}`;
+            if (data.order_amount > 0) {
+                message += `\n\n💰 Pre-booked Services: ₹${data.order_amount}\n⚡ Show QR at Pre-booked Collection counter!`;
+            } else {
+                message += `\n\n🙏 Show QR code at temple entrance for verification!`;
+            }
+            message += `\n\n📧 Check your email for complete booking details and QR code!`;
+            alert(message);
             window.location.href = '/my-bookings';
         } else {
-            alert(`Booking failed: ${data.error || 'Please try again.'}`);
+            alert(`❌ Booking failed: ${data.error || 'Please try again.'}`);
         }
     })
     .catch(error => {
