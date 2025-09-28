@@ -415,14 +415,193 @@ def admin_dashboard():
     if current_user.role != 'admin':
         return redirect(url_for('index'))
     
+    # Analytics data
+    today = datetime.now().date()
     temples = Temple.query.all()
-    bookings = Booking.query.order_by(Booking.created_at.desc()).limit(10).all()
     total_users = User.query.count()
     total_bookings = Booking.query.count()
+    total_revenue = db.session.query(db.func.sum(Booking.total_amount)).filter(
+        Booking.payment_status == 'completed'
+    ).scalar() or 0
     
-    return render_template('admin_dashboard.html', 
-                         temples=temples, bookings=bookings,
-                         total_users=total_users, total_bookings=total_bookings)
+    # Daily visitors for last 7 days
+    daily_visitors = []
+    for i in range(7):
+        date = today - timedelta(days=i)
+        count = Booking.query.filter(
+            db.func.date(Booking.created_at) == date,
+            Booking.payment_status == 'completed'
+        ).count()
+        daily_visitors.append({'date': date.strftime('%Y-%m-%d'), 'count': count})
+    
+    # Temple-wise bookings
+    temple_bookings = []
+    for temple in temples:
+        count = Booking.query.filter_by(temple_id=temple.id).count()
+        revenue = db.session.query(db.func.sum(Booking.total_amount)).filter(
+            Booking.temple_id == temple.id,
+            Booking.payment_status == 'completed'
+        ).scalar() or 0
+        temple_bookings.append({
+            'name': temple.name,
+            'bookings': count,
+            'revenue': revenue
+        })
+    
+    return render_template('admin_dashboard.html',
+                         temples=temples,
+                         total_users=total_users,
+                         total_bookings=total_bookings,
+                         total_revenue=total_revenue,
+                         daily_visitors=daily_visitors,
+                         temple_bookings=temple_bookings)
+
+@app.route('/admin/temples')
+@login_required
+def admin_temples():
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
+    temples = Temple.query.all()
+    return render_template('admin_temples.html', temples=temples)
+
+@app.route('/admin/temple/add', methods=['GET', 'POST'])
+@login_required
+def add_temple():
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        temple = Temple(
+            name=request.form['name'],
+            location=request.form['location'],
+            latitude=float(request.form['latitude']) if request.form['latitude'] else None,
+            longitude=float(request.form['longitude']) if request.form['longitude'] else None,
+            capacity=int(request.form['capacity']),
+            opening_time=request.form['opening_time'],
+            closing_time=request.form['closing_time'],
+            description=request.form['description'],
+            image_url=request.form['image_url']
+        )
+        db.session.add(temple)
+        db.session.commit()
+        flash('Temple added successfully')
+        return redirect(url_for('admin_temples'))
+    
+    return render_template('add_temple.html')
+
+@app.route('/admin/temple/edit/<int:temple_id>', methods=['GET', 'POST'])
+@login_required
+def edit_temple(temple_id):
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
+    temple = Temple.query.get_or_404(temple_id)
+    
+    if request.method == 'POST':
+        temple.name = request.form['name']
+        temple.location = request.form['location']
+        temple.latitude = float(request.form['latitude']) if request.form['latitude'] else None
+        temple.longitude = float(request.form['longitude']) if request.form['longitude'] else None
+        temple.capacity = int(request.form['capacity'])
+        temple.opening_time = request.form['opening_time']
+        temple.closing_time = request.form['closing_time']
+        temple.description = request.form['description']
+        temple.image_url = request.form['image_url']
+        temple.is_active = 'is_active' in request.form
+        
+        db.session.commit()
+        flash('Temple updated successfully')
+        return redirect(url_for('admin_temples'))
+    
+    return render_template('edit_temple.html', temple=temple)
+
+@app.route('/admin/temple/delete/<int:temple_id>', methods=['POST'])
+@login_required
+def delete_temple(temple_id):
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
+    temple = Temple.query.get_or_404(temple_id)
+    temple.is_active = False
+    db.session.commit()
+    flash('Temple deactivated successfully')
+    return redirect(url_for('admin_temples'))
+
+@app.route('/admin/bookings')
+@login_required
+def admin_bookings():
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
+    page = request.args.get('page', 1, type=int)
+    temple_id = request.args.get('temple_id', type=int)
+    
+    query = Booking.query.join(User).join(Temple)
+    
+    if temple_id:
+        query = query.filter(Booking.temple_id == temple_id)
+    
+    bookings = query.order_by(Booking.created_at.desc()).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    
+    temples = Temple.query.all()
+    
+    return render_template('admin_bookings.html', 
+                         bookings=bookings, 
+                         temples=temples, 
+                         selected_temple=temple_id)
+
+@app.route('/api/admin/analytics')
+@login_required
+def admin_analytics_api():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Daily visitors for last 30 days
+    today = datetime.now().date()
+    daily_data = []
+    
+    for i in range(30):
+        date = today - timedelta(days=i)
+        visitors = db.session.query(db.func.sum(Booking.persons)).filter(
+            db.func.date(Booking.created_at) == date,
+            Booking.payment_status == 'completed'
+        ).scalar() or 0
+        
+        revenue = db.session.query(db.func.sum(Booking.total_amount)).filter(
+            db.func.date(Booking.created_at) == date,
+            Booking.payment_status == 'completed'
+        ).scalar() or 0
+        
+        daily_data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'visitors': visitors,
+            'revenue': float(revenue)
+        })
+    
+    # Temple-wise statistics
+    temple_stats = []
+    temples = Temple.query.filter_by(is_active=True).all()
+    
+    for temple in temples:
+        bookings = Booking.query.filter_by(temple_id=temple.id).count()
+        visitors = db.session.query(db.func.sum(Booking.persons)).filter(
+            Booking.temple_id == temple.id,
+            Booking.payment_status == 'completed'
+        ).scalar() or 0
+        
+        temple_stats.append({
+            'name': temple.name,
+            'bookings': bookings,
+            'visitors': visitors
+        })
+    
+    return jsonify({
+        'daily_data': daily_data,
+        'temple_stats': temple_stats
+    })
 
 @app.route('/update-crowd', methods=['POST'])
 @login_required
@@ -933,7 +1112,7 @@ def process_payment():
     
     # Dummy payment gateway simulation
     import random
-    payment_success = random.choice([True, True, True, False])  # 75% success rate
+    payment_success = random.choice([True, True, True, True, True, False])  # 83% success rate
     
     if payment_success:
         # Generate transaction ID

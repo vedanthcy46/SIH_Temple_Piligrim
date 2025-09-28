@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="bi bi-calendar-check"></i> Booking Management</h2>
+        <p class="text-muted">View and manage all temple bookings</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <form method="GET">
+            <div class="input-group">
+                <select class="form-select" name="temple_id" onchange="this.form.submit()">
+                    <option value="">All Temples</option>
+                    {% for temple in temples %}
+                    <option value="{{ temple.id }}" {% if temple.id == selected_temple %}selected{% endif %}>
+                        {{ temple.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-outline-secondary" type="submit">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>User</th>
+                                <th>Temple</th>
+                                <th>Date & Time</th>
+                                <th>Persons</th>
+                                <th>Amount</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for booking in bookings.items %}
+                            <tr>
+                                <td>{{ booking.id }}</td>
+                                <td>
+                                    <strong>{{ booking.user.name }}</strong>
+                                    <br><small class="text-muted">{{ booking.user.email }}</small>
+                                </td>
+                                <td>{{ booking.temple.name }}</td>
+                                <td>
+                                    {{ booking.date.strftime('%d %b %Y') }}
+                                    <br><small class="text-muted">{{ booking.time_slot }}</small>
+                                </td>
+                                <td>{{ booking.persons }}</td>
+                                <td>₹{{ booking.total_amount }}</td>
+                                <td>
+                                    {% if booking.payment_status == 'completed' %}
+                                    <span class="badge bg-success">Paid</span>
+                                    {% if booking.transaction_id %}
+                                    <br><small class="text-muted">{{ booking.transaction_id }}</small>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="badge bg-warning">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if booking.status == 'confirmed' %}
+                                    <span class="badge bg-success">Confirmed</span>
+                                    {% elif booking.status == 'pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ booking.status.title() }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ booking.created_at.strftime('%d %b %Y') }}
+                                    <br><small class="text-muted">{{ booking.created_at.strftime('%I:%M %p') }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if bookings.pages > 1 %}
+                <nav aria-label="Bookings pagination">
+                    <ul class="pagination justify-content-center">
+                        {% if bookings.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin_bookings', page=bookings.prev_num, temple_id=selected_temple) }}">Previous</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in bookings.iter_pages() %}
+                        {% if page_num %}
+                        {% if page_num != bookings.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin_bookings', page=page_num, temple_id=selected_temple) }}">{{ page_num }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if bookings.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin_bookings', page=bookings.next_num, temple_id=selected_temple) }}">Next</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

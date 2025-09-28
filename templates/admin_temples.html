@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2><i class="bi bi-building"></i> Temple Management</h2>
+            <p class="text-muted">Manage temples and their details</p>
+        </div>
+        <a href="{{ url_for('add_temple') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add New Temple
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Capacity</th>
+                                <th>Timings</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for temple in temples %}
+                            <tr>
+                                <td>{{ temple.id }}</td>
+                                <td>
+                                    <strong>{{ temple.name }}</strong>
+                                    {% if temple.image_url %}
+                                    <br><small class="text-muted">Has image</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ temple.location }}</td>
+                                <td>{{ temple.capacity }} people</td>
+                                <td>{{ temple.opening_time }} - {{ temple.closing_time }}</td>
+                                <td>
+                                    {% if temple.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('temple_detail', temple_id=temple.id) }}" 
+                                           class="btn btn-sm btn-outline-info" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('edit_temple', temple_id=temple.id) }}" 
+                                           class="btn btn-sm btn-outline-primary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% if temple.is_active %}
+                                        <form method="POST" action="{{ url_for('delete_temple', temple_id=temple.id) }}" 
+                                              style="display: inline;" 
+                                              onsubmit="return confirm('Are you sure you want to deactivate this temple?')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Deactivate">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

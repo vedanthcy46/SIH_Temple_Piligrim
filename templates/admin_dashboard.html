@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="bi bi-speedometer2"></i> Admin Dashboard</h2>
+        <p class="text-muted">Temple management and analytics overview</p>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-people fs-1"></i>
+                <h4>{{ total_users }}</h4>
+                <p class="mb-0">Total Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-calendar-check fs-1"></i>
+                <h4>{{ total_bookings }}</h4>
+                <p class="mb-0">Total Bookings</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-currency-rupee fs-1"></i>
+                <h4>₹{{ "%.0f"|format(total_revenue) }}</h4>
+                <p class="mb-0">Total Revenue</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-building fs-1"></i>
+                <h4>{{ temples|length }}</h4>
+                <p class="mb-0">Active Temples</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-graph-up"></i> Daily Visitors (Last 30 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="visitorsChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-pie-chart"></i> Temple-wise Bookings</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="templeChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-currency-exchange"></i> Daily Revenue Trend</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('add_temple') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add New Temple
+                    </a>
+                    <a href="{{ url_for('admin_temples') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-building"></i> Manage Temples
+                    </a>
+                    <a href="{{ url_for('admin_bookings') }}" class="btn btn-outline-success">
+                        <i class="bi bi-calendar-check"></i> View All Bookings
+                    </a>
+                    <a href="{{ url_for('camera_scanner') }}" class="btn btn-outline-warning">
+                        <i class="bi bi-qr-code-scan"></i> QR Scanner
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-list-check"></i> Temple Performance</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Temple</th>
+                                <th>Bookings</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for temple in temple_bookings[:5] %}
+                            <tr>
+                                <td>{{ temple.name }}</td>
+                                <td>{{ temple.bookings }}</td>
+                                <td>₹{{ "%.0f"|format(temple.revenue) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Fetch analytics data
+fetch('/api/admin/analytics')
+.then(response => response.json())
+.then(data => {
+    // Daily Visitors Chart
+    const visitorsCtx = document.getElementById('visitorsChart').getContext('2d');
+    new Chart(visitorsCtx, {
+        type: 'line',
+        data: {
+            labels: data.daily_data.slice().reverse().map(d => new Date(d.date).toLocaleDateString()),
+            datasets: [{
+                label: 'Daily Visitors',
+                data: data.daily_data.slice().reverse().map(d => d.visitors),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revenueCtx, {
+        type: 'bar',
+        data: {
+            labels: data.daily_data.slice().reverse().map(d => new Date(d.date).toLocaleDateString()),
+            datasets: [{
+                label: 'Daily Revenue (₹)',
+                data: data.daily_data.slice().reverse().map(d => d.revenue),
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Temple-wise Bookings Chart
+    const templeCtx = document.getElementById('templeChart').getContext('2d');
+    new Chart(templeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: data.temple_stats.map(t => t.name),
+            datasets: [{
+                data: data.temple_stats.map(t => t.bookings),
+                backgroundColor: [
+                    '#FF6384',
+                    '#36A2EB',
+                    '#FFCE56',
+                    '#4BC0C0',
+                    '#9966FF',
+                    '#FF9F40'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+})
+.catch(error => console.error('Error loading analytics:', error));
+</script>
+{% endblock %}
