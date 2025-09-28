@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Rescue Dashboard - Temple Management{% endblock %}
+
+{% block content %}
+<!-- Emergency Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle fs-1"></i>
+                <h4 id="activeIncidents">{{ incidents|length }}</h4>
+                <p class="mb-0">Active Incidents</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <i class="bi bi-people fs-1"></i>
+                <h4 id="rescueTeams">12</h4>
+                <p class="mb-0">Rescue Teams</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-geo-alt fs-1"></i>
+                <h4 id="activeZones">{{ temples|length }}</h4>
+                <p class="mb-0">Monitored Zones</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-check-circle fs-1"></i>
+                <h4 id="resolvedToday">8</h4>
+                <p class="mb-0">Resolved Today</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Dashboard -->
+<div class="row">
+    <!-- Live Map -->
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between">
+                <h5><i class="bi bi-map"></i> Live Temple Map & Incidents</h5>
+                <div>
+                    <button class="btn btn-light btn-sm" onclick="refreshMap()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="triggerEmergency()">
+                        <i class="bi bi-exclamation-triangle"></i> Emergency Alert
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="rescueMap" style="height: 500px;"></div>
+            </div>
+        </div>
+
+        <!-- Communication Panel -->
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h6><i class="bi bi-chat-dots"></i> Team Communication</h6>
+            </div>
+            <div class="card-body">
+                <div id="chatMessages" class="border rounded p-3 mb-3" style="height: 200px; overflow-y: auto;">
+                    <div class="text-muted small">System: Rescue dashboard initialized</div>
+                    <div class="text-info small">Team Alpha: Positioned at Somnath main gate</div>
+                    <div class="text-warning small">Team Beta: Medical assistance required at Dwarka</div>
+                </div>
+                <div class="input-group">
+                    <select class="form-select" id="messageType" style="max-width: 150px;">
+                        <option value="info">Info</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                    <input type="text" class="form-control" id="messageInput" placeholder="Type message...">
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incident Management -->
+    <div class="col-md-4">
+        <!-- Create Incident -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-danger text-white">
+                <h6><i class="bi bi-plus-circle"></i> Report New Incident</h6>
+            </div>
+            <div class="card-body">
+                <form id="incidentForm">
+                    <div class="mb-3">
+                        <label class="form-label">Temple</label>
+                        <select class="form-select" name="temple_id" required>
+                            {% for temple in temples %}
+                            <option value="{{ temple.id }}">{{ temple.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Incident Type</label>
+                        <select class="form-select" name="type" required>
+                            <option value="medical">Medical Emergency</option>
+                            <option value="security">Security Issue</option>
+                            <option value="crowd">Crowd Control</option>
+                            <option value="fire">Fire Emergency</option>
+                            <option value="structural">Structural Damage</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Severity</label>
+                        <select class="form-select" name="severity" required>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Report Incident
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Active Incidents -->
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h6><i class="bi bi-list-ul"></i> Active Incidents</h6>
+            </div>
+            <div class="card-body">
+                <div id="incidentsList">
+                    {% for incident in incidents %}
+                    <div class="card mb-2 incident-card" data-incident-id="{{ incident.id }}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-1">{{ incident.type.title() }} Emergency</h6>
+                                    <small class="text-muted">{{ incident.temple.name }}</small>
+                                </div>
+                                <span class="badge bg-{{ 'danger' if incident.severity == 'critical' else 'warning' if incident.severity == 'high' else 'info' }}">
+                                    {{ incident.severity.title() }}
+                                </span>
+                            </div>
+                            <p class="card-text small">{{ incident.description[:50] }}...</p>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-success" onclick="assignTeam({{ incident.id }})">
+                                    <i class="bi bi-person-plus"></i> Assign
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="updateIncident({{ incident.id }})">
+                                    <i class="bi bi-pencil"></i> Update
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="resolveIncident({{ incident.id }})">
+                                    <i class="bi bi-check"></i> Resolve
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Emergency Alert Modal -->
+<div class="modal fade" id="emergencyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Emergency Alert System</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="emergencyForm">
+                    <div class="mb-3">
+                        <label class="form-label">Alert Type</label>
+                        <select class="form-select" name="alert_type" required>
+                            <option value="evacuation">Evacuation Alert</option>
+                            <option value="lockdown">Security Lockdown</option>
+                            <option value="medical">Medical Emergency</option>
+                            <option value="fire">Fire Emergency</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Affected Area</label>
+                        <select class="form-select" name="area" required>
+                            <option value="all">All Temples</option>
+                            {% for temple in temples %}
+                            <option value="{{ temple.id }}">{{ temple.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Emergency Message</label>
+                        <textarea class="form-control" name="message" rows="4" required placeholder="Enter emergency instructions..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="sendEmergencyAlert()">
+                    <i class="bi bi-broadcast"></i> Send Alert
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<script>
+// Initialize rescue map
+const map = L.map('rescueMap').setView([22.5, 71.5], 8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// Add temple markers with crowd heatmap
+const temples = {{ temples|tojson }};
+temples.forEach(temple => {
+    const marker = L.marker([temple.latitude, temple.longitude]).addTo(map);
+    marker.bindPopup(`
+        <b>${temple.name}</b><br>
+        <span id="temple-status-${temple.id}">Loading status...</span><br>
+        <button onclick="deployTeam(${temple.id})" class="btn btn-sm btn-primary mt-1">Deploy Team</button>
+    `);
+    
+    // Load crowd status
+    fetch(`/api/temple/${temple.id}/crowd`)
+        .then(response => response.json())
+        .then(data => {
+            const color = data.status === 'Low' ? 'green' : data.status === 'Medium' ? 'orange' : 'red';
+            const circle = L.circle([temple.latitude, temple.longitude], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.3,
+                radius: 5000
+            }).addTo(map);
+            
+            document.getElementById(`temple-status-${temple.id}`).innerHTML = 
+                `Status: <span style="color: ${color}">${data.status}</span> (${data.count} people)`;
+        });
+});
+
+// Add incident markers
+const incidents = {{ incidents|tojson }};
+incidents.forEach(incident => {
+    if (incident.latitude && incident.longitude) {
+        const color = incident.severity === 'critical' ? 'red' : incident.severity === 'high' ? 'orange' : 'yellow';
+        L.marker([incident.latitude, incident.longitude], {
+            icon: L.divIcon({
+                html: `<div style="background: ${color}; border-radius: 50%; width: 20px; height: 20px; border: 2px solid white;">⚠️</div>`,
+                iconSize: [20, 20]
+            })
+        }).addTo(map).bindPopup(`
+            <b>${incident.type.toUpperCase()} Emergency</b><br>
+            Severity: ${incident.severity}<br>
+            ${incident.description}
+        `);
+    }
+});
+
+// Incident form submission
+document.getElementById('incidentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const incidentData = Object.fromEntries(formData);
+    
+    fetch('/api/incident', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(incidentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Incident reported successfully!');
+            location.reload();
+        }
+    });
+});
+
+// Team communication
+function sendMessage() {
+    const type = document.getElementById('messageType').value;
+    const message = document.getElementById('messageInput').value;
+    
+    if (message.trim()) {
+        const chatMessages = document.getElementById('chatMessages');
+        const colorClass = type === 'emergency' ? 'text-danger' : type === 'urgent' ? 'text-warning' : 'text-primary';
+        
+        chatMessages.innerHTML += `<div class="${colorClass} small">Rescue Control: ${message}</div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        document.getElementById('messageInput').value = '';
+        
+        // Broadcast message via Socket.IO
+        socket.emit('rescue_message', {type: type, message: message});
+    }
+}
+
+// Emergency functions
+function triggerEmergency() {
+    const modal = new bootstrap.Modal(document.getElementById('emergencyModal'));
+    modal.show();
+}
+
+function sendEmergencyAlert() {
+    const form = document.getElementById('emergencyForm');
+    const formData = new FormData(form);
+    
+    // Broadcast emergency alert
+    socket.emit('emergency_alert', {
+        type: formData.get('alert_type'),
+        area: formData.get('area'),
+        message: formData.get('message')
+    });
+    
+    alert('Emergency alert sent to all relevant personnel and users!');
+    bootstrap.Modal.getInstance(document.getElementById('emergencyModal')).hide();
+}
+
+function assignTeam(incidentId) {
+    const team = prompt('Enter team name to assign:');
+    if (team) {
+        alert(`Team "${team}" assigned to incident #${incidentId}`);
+        // Update incident status
+    }
+}
+
+function updateIncident(incidentId) {
+    const update = prompt('Enter status update:');
+    if (update) {
+        alert(`Incident #${incidentId} updated: ${update}`);
+    }
+}
+
+function resolveIncident(incidentId) {
+    if (confirm('Mark this incident as resolved?')) {
+        document.querySelector(`[data-incident-id="${incidentId}"]`).remove();
+        alert(`Incident #${incidentId} resolved successfully`);
+        
+        // Update stats
+        const activeCount = document.getElementById('activeIncidents');
+        activeCount.textContent = parseInt(activeCount.textContent) - 1;
+        
+        const resolvedCount = document.getElementById('resolvedToday');
+        resolvedCount.textContent = parseInt(resolvedCount.textContent) + 1;
+    }
+}
+
+function deployTeam(templeId) {
+    const team = prompt('Enter team name to deploy:');
+    if (team) {
+        alert(`Team "${team}" deployed to temple ID: ${templeId}`);
+    }
+}
+
+function refreshMap() {
+    location.reload();
+}
+
+// Real-time updates
+socket.on('emergency_alert', function(data) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+        <strong>EMERGENCY ALERT:</strong> ${data.message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+});
+
+socket.on('rescue_message', function(data) {
+    const chatMessages = document.getElementById('chatMessages');
+    const colorClass = data.type === 'emergency' ? 'text-danger' : data.type === 'urgent' ? 'text-warning' : 'text-info';
+    chatMessages.innerHTML += `<div class="${colorClass} small">Team Radio: ${data.message}</div>`;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+</script>
+{% endblock %}

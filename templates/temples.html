@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section text-center py-5 mb-5" style="background: linear-gradient(135deg, #ff9a56 0%, #ff6b35 100%); color: white; border-radius: 15px; position: relative; overflow: hidden;">
+    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="temple" patternUnits="userSpaceOnUse" width="20" height="20"><circle cx="10" cy="10" r="1" fill="%23ffffff" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23temple)"/></svg>'); opacity: 0.3;"></div>
+    <div style="position: relative; z-index: 1;">
+        <h1 class="display-4 fw-bold mb-3">🕉️ Sacred Temples of Gujarat</h1>
+        <p class="lead mb-4">Discover divine destinations and book your spiritual journey</p>
+        <div class="d-flex justify-content-center gap-3">
+            <span class="badge bg-light text-dark px-3 py-2"><i class="bi bi-geo-alt"></i> {{ temples|length }} Sacred Sites</span>
+            <span class="badge bg-light text-dark px-3 py-2"><i class="bi bi-people"></i> Thousands of Devotees</span>
+            <span class="badge bg-light text-dark px-3 py-2"><i class="bi bi-calendar-check"></i> Easy Booking</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="templeSearch" placeholder="Search temples...">
+        </div>
+    </div>
+    <div class="col-md-6">
+        <select class="form-select" id="crowdFilter">
+            <option value="">All Crowd Levels</option>
+            <option value="Low">Low Crowd</option>
+            <option value="Medium">Medium Crowd</option>
+            <option value="High">High Crowd</option>
+        </select>
+    </div>
+</div>
+
+<!-- Temples Grid -->
+<div class="row" id="templesGrid">
+    {% for temple in temples %}
+    <div class="col-lg-3 col-md-4 col-sm-6 mb-4 temple-item" data-name="{{ temple.name.lower() }}">
+        <div class="card h-100 shadow-sm temple-card border-0">
+            <div class="position-relative overflow-hidden">
+                <img src="{{ temple.image_url or 'https://www.gujarattourism.com/content/dam/gujrattourism/images/religious-sites/somnath-temple/Somnath-Temple-Banner.jpg' }}" 
+                     class="card-img-top temple-image" style="height: 250px; object-fit: cover; transition: transform 0.3s;">
+                <div class="position-absolute top-0 end-0 m-2">
+                    <span class="badge bg-success crowd-status" data-temple-id="{{ temple.id }}">Loading...</span>
+                </div>
+                <div class="position-absolute bottom-0 start-0 end-0 p-3" style="background: linear-gradient(transparent, rgba(0,0,0,0.7));">
+                    <h5 class="text-white mb-1">{{ temple.name }}</h5>
+                    <small class="text-white-50"><i class="bi bi-geo-alt"></i> {{ temple.location }}</small>
+                </div>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="card-text text-muted small flex-grow-1">{{ temple.description or 'A sacred place for devotees to visit and seek blessings.' }}</p>
+                
+                <div class="mt-auto">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted">
+                            <i class="bi bi-clock text-primary"></i> 
+                            {{ temple.opening_time or '6:00 AM' }} - {{ temple.closing_time or '8:00 PM' }}
+                        </small>
+                        <small class="text-muted">
+                            <i class="bi bi-people text-success"></i> {{ temple.capacity }} capacity
+                        </small>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('temple_detail', temple_id=temple.id) }}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-eye"></i> View Details
+                        </a>
+                        {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('temple_detail', temple_id=temple.id) }}" class="btn btn-success btn-sm">
+                            <i class="bi bi-calendar-plus"></i> Book Darshan
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Devotional Quote -->
+<div class="text-center py-5 mt-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px;">
+    <h3 class="mb-3">"सर्वे भवन्तु सुखिनः"</h3>
+    <p class="lead">May all beings be happy and peaceful</p>
+    <small class="opacity-75">Experience divine blessings at Gujarat's most sacred temples</small>
+</div>
+
+<script>
+// Load crowd status for all temples
+document.addEventListener('DOMContentLoaded', function() {
+    const templeItems = document.querySelectorAll('.temple-item');
+    const searchInput = document.getElementById('templeSearch');
+    const crowdFilter = document.getElementById('crowdFilter');
+    
+    // Load crowd status
+    document.querySelectorAll('.crowd-status').forEach(badge => {
+        const templeId = badge.dataset.templeId;
+        fetch(`/api/temple/${templeId}/crowd`)
+            .then(response => response.json())
+            .then(data => {
+                badge.textContent = data.status;
+                badge.className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+                badge.parentElement.parentElement.parentElement.dataset.crowd = data.status;
+            })
+            .catch(() => {
+                const dummyStatus = ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)];
+                badge.textContent = dummyStatus;
+                badge.className = `badge bg-${dummyStatus === 'Low' ? 'success' : dummyStatus === 'Medium' ? 'warning' : 'danger'}`;
+                badge.parentElement.parentElement.parentElement.dataset.crowd = dummyStatus;
+            });
+    });
+    
+    // Search functionality
+    searchInput.addEventListener('input', filterTemples);
+    crowdFilter.addEventListener('change', filterTemples);
+    
+    function filterTemples() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const crowdLevel = crowdFilter.value;
+        
+        templeItems.forEach(item => {
+            const templeName = item.dataset.name;
+            const templeCrowd = item.dataset.crowd;
+            
+            const matchesSearch = templeName.includes(searchTerm);
+            const matchesCrowd = !crowdLevel || templeCrowd === crowdLevel;
+            
+            if (matchesSearch && matchesCrowd) {
+                item.style.display = 'block';
+                item.classList.add('fade-in');
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.temple-card {
+    transition: all 0.3s ease;
+    border-radius: 15px;
+    overflow: hidden;
+}
+.temple-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+.temple-card:hover .temple-image {
+    transform: scale(1.05);
+}
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.hero-section {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

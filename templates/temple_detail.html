@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <img src="{{ temple.image_url or 'https://www.gujarattourism.com/content/dam/gujrattourism/images/religious-sites/somnath-temple/Somnath-Temple-Banner.jpg' }}" class="card-img-top" style="height: 400px; object-fit: cover; border-radius: 15px 15px 0 0;">
+            <div class="card-body">
+                <h2>{{ temple.name }}</h2>
+                <p class="text-muted"><i class="bi bi-geo-alt"></i> {{ temple.location }}</p>
+                <div class="alert alert-light border-start border-warning border-4 mb-4">
+                    <p class="mb-0"><i class="bi bi-info-circle text-warning me-2"></i>{{ temple.description or 'A sacred temple for devotees to visit and seek blessings.' }}</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Temple Timings</h6>
+                        <p>{{ temple.opening_time or '6:00 AM' }} - 
+                           {{ temple.closing_time or '8:00 PM' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Capacity</h6>
+                        <p>{{ temple.capacity }} devotees</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5>Current Crowd Status</h5>
+            </div>
+            <div class="card-body text-center">
+                {% if crowd %}
+                    <h3 class="text-{{ 'success' if crowd.status == 'Low' else 'warning' if crowd.status == 'Medium' else 'danger' }}">
+                        {{ crowd.status }}
+                    </h3>
+                    <p>{{ crowd.count }} people currently</p>
+                {% else %}
+                    <h3 class="text-success">Low</h3>
+                    <p>0 people currently</p>
+                {% endif %}
+                <small class="text-muted">Last updated: {{ crowd.updated_at.strftime('%I:%M %p') if crowd else 'Just now' }}</small>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-success text-white">
+                <h5>Book Darshan Slot</h5>
+            </div>
+            <div class="card-body">
+                {% if current_user.is_authenticated %}
+                    <form id="bookingForm">
+                        <div class="mb-3">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" id="bookingDate" required min="{{ today }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Time Slot</label>
+                            <select class="form-select" id="timeSlot" required>
+                                <option value="">Select time slot</option>
+                                <option value="06:00-08:00">6:00 AM - 8:00 AM</option>
+                                <option value="08:00-10:00">8:00 AM - 10:00 AM</option>
+                                <option value="10:00-12:00">10:00 AM - 12:00 PM</option>
+                                <option value="12:00-14:00">12:00 PM - 2:00 PM</option>
+                                <option value="14:00-16:00">2:00 PM - 4:00 PM</option>
+                                <option value="16:00-18:00">4:00 PM - 6:00 PM</option>
+                                <option value="18:00-20:00">6:00 PM - 8:00 PM</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Number of People</label>
+                            <input type="number" class="form-control" id="persons" min="1" max="10" value="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Amount (₹)</label>
+                            <input type="number" class="form-control" id="amount" value="50" readonly>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Book Now</button>
+                    </form>
+                {% else %}
+                    <div class="text-center">
+                        <p>Please login to book darshan slots</p>
+                        <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
+                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Register</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Set minimum date to today
+document.getElementById('bookingDate').min = new Date().toISOString().split('T')[0];
+
+// Update amount based on persons
+document.getElementById('persons').addEventListener('input', function() {
+    const persons = parseInt(this.value) || 1;
+    document.getElementById('amount').value = persons * 50;
+});
+
+// Handle booking form submission
+document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        temple_id: {{ temple.id }},
+        date: document.getElementById('bookingDate').value,
+        time_slot: document.getElementById('timeSlot').value,
+        persons: parseInt(document.getElementById('persons').value)
+    };
+    
+    fetch('/api/book', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Booking successful! Booking ID: ${data.booking_id}\nConfirmation ID: ${data.confirmation_id || 'N/A'}`);
+            window.location.href = '/my-bookings';
+        } else {
+            alert(`Booking failed: ${data.error || 'Please try again.'}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    });
+});
+</script>
+{% endblock %}
