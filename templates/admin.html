@@ -3,13 +3,21 @@
 {% block title %}Admin Dashboard - Temple Management{% endblock %}
 
 {% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Admin Dashboard</h2>
+        <p class="text-muted">Manage temples, bookings, and crowd status</p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="card bg-primary text-white">
             <div class="card-body text-center">
-                <i class="bi bi-people fs-1"></i>
-                <h4>{{ bookings|length }}</h4>
-                <p class="mb-0">Total Bookings</p>
+                <i class="bi bi-building fs-1"></i>
+                <h4>{{ temples|length if temples else 4 }}</h4>
+                <p class="mb-0">Total Temples</p>
             </div>
         </div>
     </div>
@@ -17,42 +25,88 @@
         <div class="card bg-success text-white">
             <div class="card-body text-center">
                 <i class="bi bi-calendar-check fs-1"></i>
-                <h4>{{ bookings|selectattr('date', 'equalto', today)|list|length }}</h4>
-                <p class="mb-0">Today's Bookings</p>
+                <h4>{{ total_bookings if total_bookings else bookings|length }}</h4>
+                <p class="mb-0">Total Bookings</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-people fs-1"></i>
+                <h4>{{ total_users if total_users else 0 }}</h4>
+                <p class="mb-0">Registered Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-clock fs-1"></i>
+                <h4>{{ bookings|length }}</h4>
+                <p class="mb-0">Recent Bookings</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Crowd Management -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Update Crowd Status</h5>
+            </div>
+            <div class="card-body">
+                <form id="crowdForm">
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" name="status" required>
+                            <option value="Low" {% if crowd_status == 'Low' %}selected{% endif %}>Low</option>
+                            <option value="Medium" {% if crowd_status == 'Medium' %}selected{% endif %}>Medium</option>
+                            <option value="High" {% if crowd_status == 'High' %}selected{% endif %}>High</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">People Count</label>
+                        <input type="number" class="form-control" name="count" min="0" value="{{ crowd_count or 0 }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Status</button>
+                </form>
+                <div class="text-center mt-3">
+                    <h5 id="currentStatus" class="badge bg-{{ 'success' if crowd_status == 'Low' else 'warning' if crowd_status == 'Medium' else 'danger' }}">{{ crowd_status or 'Low' }}</h5>
+                    <p id="currentCount" class="text-muted small">People detected: {{ crowd_count or 0 }}</p>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h6>Crowd Management</h6>
+                <h5>Quick Actions</h5>
             </div>
             <div class="card-body">
-                <div class="d-flex gap-2 mb-3">
-                    <a href="{{ url_for('detect_crowd_route') }}" class="btn btn-warning flex-fill">
-                        <i class="bi bi-camera"></i> AI Detection
-                    </a>
-                    <form method="POST" action="{{ url_for('update_crowd') }}" class="d-flex gap-2 flex-fill">
-                        <select class="form-select" name="status" required>
-                            <option value="Low" {% if crowd_status == 'Low' %}selected{% endif %}>Low</option>
-                            <option value="Medium" {% if crowd_status == 'Medium' %}selected{% endif %}>Medium</option>
-                            <option value="High" {% if crowd_status == 'High' %}selected{% endif %}>High</option>
-                        </select>
-                        <button type="submit" class="btn btn-primary">Manual Update</button>
-                    </form>
-                </div>
-                <div class="text-center">
-                    <h5 id="currentStatus" class="badge bg-{{ 'success' if crowd_status == 'Low' else 'warning' if crowd_status == 'Medium' else 'danger' }}">{{ crowd_status }}</h5>
-                    <p id="currentCount" class="text-muted small">People detected: {{ crowd_count or 0 }}</p>
-                </div>
+                <a href="{{ url_for('detect_crowd_route') }}" class="btn btn-warning w-100 mb-2">
+                    <i class="bi bi-camera"></i> AI Crowd Detection
+                </a>
+                <a href="{{ url_for('temples') }}" class="btn btn-outline-primary w-100 mb-2">
+                    <i class="bi bi-geo-alt"></i> View All Temples
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-success w-100 mb-2">
+                    <i class="bi bi-house"></i> View Public Site
+                </a>
+                <button class="btn btn-outline-info w-100" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Dashboard
+                </button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Recent Bookings -->
 <div class="card shadow">
     <div class="card-header bg-dark text-white">
-        <h4><i class="bi bi-table"></i> All Bookings</h4>
+        <h4><i class="bi bi-table"></i> Recent Bookings</h4>
     </div>
     <div class="card-body">
         {% if bookings %}
@@ -62,9 +116,11 @@
                     <tr>
                         <th>ID</th>
                         <th>User</th>
+                        <th>Temple</th>
                         <th>Date</th>
                         <th>Time Slot</th>
                         <th>Persons</th>
+                        <th>Confirmation ID</th>
                         <th>Booked On</th>
                     </tr>
                 </thead>
@@ -73,9 +129,11 @@
                     <tr>
                         <td>{{ booking.id }}</td>
                         <td>{{ booking.user.name }}</td>
+                        <td>{{ booking.temple.name if booking.temple else 'Temple Visit' }}</td>
                         <td>{{ booking.date.strftime('%Y-%m-%d') }}</td>
                         <td>{{ booking.time_slot }}</td>
                         <td>{{ booking.persons }}</td>
+                        <td><code>{{ booking.confirmation_id or 'N/A' }}</code></td>
                         <td>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                     </tr>
                     {% endfor %}
@@ -94,6 +152,31 @@
 
 {% block scripts %}
 <script>
+// Handle crowd status update
+document.getElementById('crowdForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/update-crowd', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Crowd status updated successfully!');
+            refreshCrowdData();
+        } else {
+            alert('Failed to update crowd status.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred.');
+    });
+});
+
 function refreshCrowdData() {
     fetch('/crowd-status')
         .then(response => response.json())
@@ -107,6 +190,11 @@ function refreshCrowdData() {
         });
 }
 
+function refreshData() {
+    location.reload();
+}
+
+// Auto-refresh crowd data every 10 seconds
 setInterval(refreshCrowdData, 10000);
 </script>
 {% endblock %}

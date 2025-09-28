@@ -1,30 +1,108 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Hero Section -->
 <div class="hero-section text-center py-5 mb-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
     <h1 class="display-4 fw-bold mb-4">🕉️ Temple Pilgrimage Management</h1>
-    <p class="lead mb-4">Smart crowd management system for seamless temple visits</p>
+    <p class="lead mb-4">Smart crowd management for seamless temple visits across Gujarat</p>
     <div class="row justify-content-center">
         <div class="col-md-3">
-            <a href="{{ url_for('login') }}" class="btn btn-light btn-lg w-100 mb-2">
-                <i class="bi bi-box-arrow-in-right"></i> Login
+            <a href="{{ url_for('temples') }}" class="btn btn-light btn-lg w-100 mb-2">
+                <i class="bi bi-geo-alt"></i> Explore Temples
             </a>
         </div>
         <div class="col-md-3">
-            <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg w-100 mb-2">
-                <i class="bi bi-person-plus"></i> Register
-            </a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('my_bookings') }}" class="btn btn-outline-light btn-lg w-100 mb-2">
+                    <i class="bi bi-calendar-check"></i> My Bookings
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg w-100 mb-2">
+                    <i class="bi bi-person"></i> Login / Register
+                </a>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<div class="row">
+<!-- Temple Selection & Map -->
+{% if temples %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="text-center mb-4">Temple Location & Crowd Status</h2>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0">Select Temple</h6>
+            </div>
+            <div class="card-body">
+                <select class="form-select mb-3" id="templeSelect">
+                    <option value="">Choose a temple...</option>
+                    {% for temple in temples %}
+                    <option value="{{ temple.id }}">{{ temple.name }}</option>
+                    {% endfor %}
+                </select>
+                <div id="templeInfo" class="d-none">
+                    <h6 id="templeName"></h6>
+                    <p id="templeLocation" class="text-muted small"></p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Crowd Status:</span>
+                        <span id="crowdBadge" class="badge">-</span>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">People Count: <span id="crowdCount">-</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">Temple Location</h6>
+            </div>
+            <div class="card-body p-0">
+                <div id="templeMap" style="height: 400px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Featured Temples -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="text-center mb-4">Featured Temples</h2>
+    </div>
+    {% for temple in temples %}
+    <div class="col-md-3 mb-4">
+        <div class="card h-100 shadow-sm temple-card">
+            <img src="{{ temple.image_url or 'https://www.gujarattourism.com/content/dam/gujrattourism/images/religious-sites/somnath-temple/Somnath-Temple-Banner.jpg' }}" class="card-img-top" style="height: 200px; object-fit: cover; border-radius: 10px 10px 0 0;">
+            <div class="card-body">
+                <h5 class="card-title">{{ temple.name }}</h5>
+                <p class="card-text">{{ temple.location }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="badge bg-success crowd-status" data-temple-id="{{ temple.id }}">Loading...</span>
+                    <a href="{{ url_for('temple_detail', temple_id=temple.id) }}" class="btn btn-primary btn-sm">View Details</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Features Section -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="text-center mb-4">System Features</h2>
+    </div>
     <div class="col-md-4 mb-4">
         <div class="card h-100 shadow-sm">
             <div class="card-body text-center">
                 <i class="bi bi-calendar-check fs-1 text-primary mb-3"></i>
-                <h5>Slot Booking</h5>
-                <p class="text-muted">Book your temple visit slots in advance</p>
+                <h5>Smart Booking</h5>
+                <p class="text-muted">AI-powered slot recommendations based on crowd predictions</p>
             </div>
         </div>
     </div>
@@ -32,8 +110,8 @@
         <div class="card h-100 shadow-sm">
             <div class="card-body text-center">
                 <i class="bi bi-people fs-1 text-success mb-3"></i>
-                <h5>Crowd Management</h5>
-                <p class="text-muted">Real-time crowd monitoring</p>
+                <h5>Real-time Crowd</h5>
+                <p class="text-muted">Live crowd monitoring with AI detection and heatmaps</p>
             </div>
         </div>
     </div>
@@ -41,10 +119,182 @@
         <div class="card h-100 shadow-sm">
             <div class="card-body text-center">
                 <i class="bi bi-shield-check fs-1 text-warning mb-3"></i>
-                <h5>Admin Dashboard</h5>
-                <p class="text-muted">Comprehensive management tools</p>
+                <h5>Emergency Management</h5>
+                <p class="text-muted">Integrated rescue team coordination and incident management</p>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Chatbot -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1000;">
+    <button class="btn btn-primary rounded-circle" id="chatbotToggle" style="width: 60px; height: 60px;">
+        <i class="bi bi-chat-dots fs-4"></i>
+    </button>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" id="chatbotWindow" style="display: none; z-index: 1001;">
+    <div class="card" style="width: 300px; height: 400px;">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0">Temple Assistant</h6>
+        </div>
+        <div class="card-body d-flex flex-column">
+            <div id="chatMessages" class="flex-grow-1 overflow-auto mb-3">
+                <div class="alert alert-info small">Hi! I can help you with bookings, crowd status, and temple information.</div>
+            </div>
+            <div class="input-group">
+                <input type="text" class="form-control" id="chatInput" placeholder="Ask me anything...">
+                <button class="btn btn-primary" id="chatSend">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+let map, currentMarker, crowdCircle;
+let templeData = {};
+
+// Load temple data from API
+fetch('/api/temples')
+    .then(response => response.json())
+    .then(temples => {
+        temples.forEach(temple => {
+            templeData[temple.id] = {
+                name: temple.name,
+                location: temple.location,
+                lat: temple.latitude || 22.5,
+                lng: temple.longitude || 71.5,
+                crowd: { status: 'Low', count: 0 }
+            };
+        });
+    });
+
+// Initialize map
+function initMap() {
+    map = L.map('templeMap').setView([22.5, 71.5], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+}
+
+// Update map with selected temple
+function updateMap(templeId) {
+    const temple = templeData[templeId];
+    if (!temple) return;
+    
+    // Remove existing markers
+    if (currentMarker) map.removeLayer(currentMarker);
+    if (crowdCircle) map.removeLayer(crowdCircle);
+    
+    // Add temple marker
+    currentMarker = L.marker([temple.lat, temple.lng])
+        .addTo(map)
+        .bindPopup(`<b>${temple.name}</b><br>${temple.location}<br>Crowd: ${temple.crowd.status}`);
+    
+    // Add crowd density circle
+    const crowdColor = temple.crowd.status === 'Low' ? 'green' : 
+                      temple.crowd.status === 'Medium' ? 'orange' : 'red';
+    
+    crowdCircle = L.circle([temple.lat, temple.lng], {
+        color: crowdColor,
+        fillColor: crowdColor,
+        fillOpacity: 0.3,
+        radius: temple.crowd.count * 50 + 1000
+    }).addTo(map);
+    
+    // Center map on temple
+    map.setView([temple.lat, temple.lng], 12);
+    
+    // Update temple info
+    document.getElementById('templeName').textContent = temple.name;
+    document.getElementById('templeLocation').textContent = temple.location;
+    document.getElementById('crowdBadge').textContent = temple.crowd.status;
+    document.getElementById('crowdBadge').className = `badge bg-${temple.crowd.status === 'Low' ? 'success' : temple.crowd.status === 'Medium' ? 'warning' : 'danger'}`;
+    document.getElementById('crowdCount').textContent = temple.crowd.count;
+    document.getElementById('templeInfo').classList.remove('d-none');
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('templeMap')) {
+        initMap();
+        
+        document.getElementById('templeSelect')?.addEventListener('change', function() {
+            const selectedTemple = this.value;
+            if (selectedTemple) {
+                updateMap(selectedTemple);
+            } else {
+                document.getElementById('templeInfo').classList.add('d-none');
+                if (currentMarker) map.removeLayer(currentMarker);
+                if (crowdCircle) map.removeLayer(crowdCircle);
+                map.setView([22.5, 71.5], 7);
+            }
+        });
+    }
+    
+    // Load crowd status for featured temples
+    document.querySelectorAll('.crowd-status').forEach(badge => {
+        const templeId = badge.dataset.templeId;
+        fetch(`/api/temple/${templeId}/crowd`)
+            .then(response => response.json())
+            .then(data => {
+                badge.textContent = data.status;
+                badge.className = `badge bg-${data.status === 'Low' ? 'success' : data.status === 'Medium' ? 'warning' : 'danger'}`;
+                if (templeData[templeId]) {
+                    templeData[templeId].crowd = data;
+                }
+            })
+            .catch(() => {
+                const dummyStatus = ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)];
+                badge.textContent = dummyStatus;
+                badge.className = `badge bg-${dummyStatus === 'Low' ? 'success' : dummyStatus === 'Medium' ? 'warning' : 'danger'}`;
+            });
+    });
+    
+    // Chatbot functionality
+    document.getElementById('chatbotToggle')?.addEventListener('click', function() {
+        const window = document.getElementById('chatbotWindow');
+        window.style.display = window.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    document.getElementById('chatSend')?.addEventListener('click', sendMessage);
+    document.getElementById('chatInput')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+});
+
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const messages = document.getElementById('chatMessages');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    messages.innerHTML += `<div class="text-end mb-2"><span class="badge bg-primary">${message}</span></div>`;
+    input.value = '';
+    
+    fetch('/api/chatbot', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: message})
+    })
+    .then(response => response.json())
+    .then(data => {
+        messages.innerHTML += `<div class="mb-2"><span class="badge bg-secondary">${data.response}</span></div>`;
+        messages.scrollTop = messages.scrollHeight;
+    });
+}
+</script>
+
+<style>
+.temple-card {
+    transition: transform 0.3s;
+}
+.temple-card:hover {
+    transform: translateY(-5px);
+}
+</style>
 {% endblock %}
