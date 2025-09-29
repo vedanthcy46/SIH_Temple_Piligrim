@@ -299,7 +299,14 @@ Temple Management Team"""
 # Routes
 @app.route('/')
 def index():
-    temples = Temple.query.filter_by(is_active=True).limit(4).all()
+    temples = Temple.query.filter_by(is_active=True).all()
+    # Ensure all temples have crowd data
+    for temple in temples:
+        existing_crowd = Crowd.query.filter_by(temple_id=temple.id).first()
+        if not existing_crowd:
+            crowd = Crowd(temple_id=temple.id, status='Low', count=0, accuracy=1.0)
+            db.session.add(crowd)
+    db.session.commit()
     return render_template('index.html', temples=temples)
 
 @app.route('/index')
@@ -484,6 +491,16 @@ def add_temple():
             image_url=request.form['image_url']
         )
         db.session.add(temple)
+        db.session.flush()  # Get temple ID
+        
+        # Create initial crowd data for new temple
+        crowd = Crowd(
+            temple_id=temple.id,
+            status='Low',
+            count=0,
+            accuracy=1.0
+        )
+        db.session.add(crowd)
         db.session.commit()
         flash('Temple added successfully')
         return redirect(url_for('admin_temples'))
@@ -552,6 +569,32 @@ def admin_bookings():
                          bookings=bookings, 
                          temples=temples, 
                          selected_temple=temple_id)
+
+@app.route('/admin/init-crowd-data')
+@login_required
+def init_crowd_data():
+    if current_user.role != 'admin':
+        return redirect(url_for('index'))
+    
+    # Initialize crowd data for temples that don't have it
+    temples = Temple.query.filter_by(is_active=True).all()
+    initialized = 0
+    
+    for temple in temples:
+        existing_crowd = Crowd.query.filter_by(temple_id=temple.id).first()
+        if not existing_crowd:
+            crowd = Crowd(
+                temple_id=temple.id,
+                status='Low',
+                count=0,
+                accuracy=1.0
+            )
+            db.session.add(crowd)
+            initialized += 1
+    
+    db.session.commit()
+    flash(f'Initialized crowd data for {initialized} temples')
+    return redirect(url_for('admin_temples'))
 
 @app.route('/api/admin/analytics')
 @login_required
@@ -824,11 +867,31 @@ def crowd_status():
     temple_id = request.args.get('temple_id')
     if temple_id:
         crowd = Crowd.query.filter_by(temple_id=temple_id).order_by(Crowd.updated_at.desc()).first()
+        if not crowd:
+            # Create crowd data if it doesn't exist
+            temple = Temple.query.get(temple_id)
+            if temple and temple.is_active:
+                crowd = Crowd(temple_id=temple_id, status='Low', count=0, accuracy=1.0)
+                db.session.add(crowd)
+                db.session.commit()
     else:
         crowd = Crowd.query.order_by(Crowd.updated_at.desc()).first()
+    
     if crowd:
         return jsonify({'status': crowd.status, 'count': crowd.count, 'accuracy': crowd.accuracy})
     return jsonify({'status': 'Low', 'count': 0, 'accuracy': 0.0})
+
+@app.route('/crowd')
+def crowd_page():
+    temples = Temple.query.filter_by(is_active=True).all()
+    # Ensure all temples have crowd data
+    for temple in temples:
+        existing_crowd = Crowd.query.filter_by(temple_id=temple.id).first()
+        if not existing_crowd:
+            crowd = Crowd(temple_id=temple.id, status='Low', count=0, accuracy=1.0)
+            db.session.add(crowd)
+    db.session.commit()
+    return render_template('crowd.html', temples=temples)
 
 @app.route('/live-detection/<int:temple_id>')
 @login_required

@@ -10,11 +10,23 @@
                 <h4><i class="bi bi-people"></i> Live Crowd Status</h4>
                 <small>Real-time updates via AI detection</small>
             </div>
-            <div class="card-body text-center">
+            <div class="card-body">
+                <!-- Temple Selection -->
                 <div class="mb-4">
+                    <label class="form-label">Select Temple:</label>
+                    <select class="form-select" id="templeSelect" onchange="loadCrowdStatus()">
+                        <option value="">All Temples</option>
+                        {% for temple in temples %}
+                        <option value="{{ temple.id }}">{{ temple.name }} - {{ temple.location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="text-center mb-4">
                     <div class="display-4 mb-3" id="crowdIcon">🟡</div>
                     <h2 class="text-warning" id="crowdStatus">Current Status: Medium</h2>
                     <p class="text-muted" id="crowdDescription">Moderate crowd. Some waiting time expected.</p>
+                    <p class="small text-muted" id="crowdCount">Estimated visitors: 0</p>
                 </div>
 
                 <div class="row mb-4">
@@ -49,7 +61,7 @@
                     <strong>Real-time updates:</strong> Status automatically updates when admin changes crowd level
                 </div>
 
-                <a href="{{ url_for('book') }}" class="btn btn-success">
+                <a href="{{ url_for('temples') }}" class="btn btn-success">
                     <i class="bi bi-calendar-plus"></i> Book Slot
                 </a>
             </div>
@@ -58,12 +70,20 @@
 </div>
 
 <script>
-// Initial crowd status load
-fetch('/crowd-status')
-    .then(response => response.json())
-    .then(data => {
-        updateCrowdDisplay(data.status, data.count);
-    });
+// Load crowd status for selected temple
+function loadCrowdStatus() {
+    const templeId = document.getElementById('templeSelect').value;
+    const url = templeId ? `/crowd-status?temple_id=${templeId}` : '/crowd-status';
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            updateCrowdDisplay(data.status, data.count);
+        })
+        .catch(error => {
+            console.error('Error loading crowd status:', error);
+        });
+}
 
 function updateCrowdDisplay(status, count) {
     const icons = { 'Low': '🟢', 'Medium': '🟡', 'High': '🔴' };
@@ -78,6 +98,13 @@ function updateCrowdDisplay(status, count) {
     document.getElementById('crowdStatus').textContent = `Current Status: ${status}`;
     document.getElementById('crowdStatus').className = `text-${colors[status]}`;
     document.getElementById('crowdDescription').textContent = descriptions[status];
+    document.getElementById('crowdCount').textContent = `Estimated visitors: ${count}`;
 }
+
+// Initial load
+loadCrowdStatus();
+
+// Auto-refresh every 30 seconds
+setInterval(loadCrowdStatus, 30000);
 </script>
 {% endblock %}

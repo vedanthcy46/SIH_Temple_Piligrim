@@ -7,9 +7,14 @@
             <h2><i class="bi bi-building"></i> Temple Management</h2>
             <p class="text-muted">Manage temples and their details</p>
         </div>
-        <a href="{{ url_for('add_temple') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Add New Temple
-        </a>
+        <div>
+            <a href="{{ url_for('add_temple') }}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Add New Temple
+            </a>
+            <a href="{{ url_for('init_crowd_data') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise"></i> Init Crowd Data
+            </a>
+        </div>
     </div>
 </div>
 
