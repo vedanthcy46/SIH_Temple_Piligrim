@@ -14,4 +14,3 @@ itsdangerous==2.1.2
 click==8.1.7
 blinker==1.6.2
 SQLAlchemy==2.0.21
-requests==2.31.0
